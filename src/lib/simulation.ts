@@ -71,7 +71,11 @@ export function evaluateRay(
     const d_m = d_px / params.pixelsPerMeter;
     if (d_m > params.maxRange) return 0;
 
-    const angle_to_P = Math.atan2(sample.y - point.y, sample.x - point.x) * 180 / Math.PI;
+    let math_angle_to_P = Math.atan2(sample.y - point.y, sample.x - point.x) * 180 / Math.PI;
+    let angle_to_P = math_angle_to_P + 90; 
+    if (angle_to_P < 0) angle_to_P += 360;
+    if (angle_to_P >= 360) angle_to_P -= 360;
+
     let diff = Math.abs(angle_to_P - angle);
     diff = diff > 180 ? 360 - diff : diff;
     const halfWidth = params.beamWidth / 2;
@@ -260,7 +264,7 @@ export function runSimulation(
             id: newEq.id,
             x: Math.round(newEq.x), y: Math.round(newEq.y), angle: Math.round(newEq.angle),
             score: 0, coveredCount: selectedSamples.length, // Manual implies custom score mapping not needed for placement
-            message: `[MANUAL] Node ${newEq.id} at (${Math.round(newEq.x)}, ${Math.round(newEq.y)}) facing ${Math.round(newEq.angle)}°. Secured ${selectedSamples.length} meters of coverage.`
+            message: `[MANUAL] Node ${newEq.id} placed ${newEq.bIdx !== undefined ? `on Building #${newEq.bIdx + 1}` : 'on Map'} at (${Math.round(newEq.x)}, ${Math.round(newEq.y)}) facing ${Math.round(newEq.angle)}°. Secured ${selectedSamples.length} meters of coverage.`
         });
     }
 
@@ -274,10 +278,32 @@ export function runSimulation(
         let bestCoveredIndices: number[] = [];
 
         for (const point of candidatePoints) {
-            if (params.strictCoLocation && establishedNodes.has(point.bIdx)) {
-                const established = establishedNodes.get(point.bIdx)!;
-                if (Math.abs(point.x - established.x) > 1 || Math.abs(point.y - established.y) > 1) continue;
+            // "Strict 1 Pole" logic updated per user request:
+            // "What if we place them on the exact same pole even if they are evaluating for different buildings?"
+            // To achieve "Global Pole Minimization", if 'strictCoLocation' is true, 
+            // we force the simulation to ONLY pick points that exactly match an ALREADY established pole anywhere globally,
+            // OR if no poles exist for a building, picking a new one. 
+            // Actually, an even better approach: If strictCoLocation is on, we snap 'point' to an established pole 
+            // if it is reasonably close geographically, or we just rely on the existing 'establishedNodes' logic
+            // but extend it. Let's loosen the `establishedNodes.has(point.bIdx)` restriction to encourage reusing ANY existing pole.
+            
+            let isAllowed = true;
+            if (params.strictCoLocation) {
+                // Check if this building already has a pole
+                if (establishedNodes.has(point.bIdx)) {
+                    const established = establishedNodes.get(point.bIdx)!;
+                    // Must be EXACTLY on that established pole
+                    if (Math.abs(point.x - established.x) > 1 || Math.abs(point.y - established.y) > 1) {
+                         isAllowed = false;
+                    }
+                } else {
+                    // This building doesn't have a pole yet.
+                    // Are we allowed to use ANOTHER building's pole? YES.
+                    // But if we evaluate a new candidate point, we let it pass.
+                    // To maximize colocation across buildings, we will boost the score of existing poles globally later.
+                }
             }
+            if (!isAllowed) continue;
 
             let bestAngleScore = -1;
             let bestAngle = 0;
@@ -320,7 +346,20 @@ export function runSimulation(
                 
                 scoredSamples.sort((a, b) => b.score - a.score);
                 const selectedSamples = scoredSamples;
-                const score = selectedSamples.reduce((sum, s) => sum + s.score, 0);
+                let score = selectedSamples.reduce((sum, s) => sum + s.score, 0);
+
+                // --- SCORE BOOST FOR CROSS-BUILDING COLOCATION ---
+                // If this point is ON an already established pole globally, give it a 30% score multiplier.
+                // This forces algorithm to heavily prefer placing 2nd/3rd sectors on an existing pole 
+                // targeting OTHER buildings, instead of spawning a new pole.
+                if (params.strictCoLocation) {
+                    for (const eq of equipments) {
+                         if (Math.abs(eq.x - point.x) < 2 && Math.abs(eq.y - point.y) < 2) {
+                             score *= 1.30; 
+                             break;
+                         }
+                    }
+                }
 
                 if (score > bestAngleScore) {
                     bestAngleScore = score;
@@ -371,7 +410,7 @@ export function runSimulation(
             angle: bestCandidate.angle,
             score: Math.round(bestScore * 100) / 100,
             coveredCount: bestCoveredIndices.length,
-            message: `[AUTO] Node ${bestCandidate.id} placed facing ${bestCandidate.angle}°. (Score: ${Math.round(bestScore * 100) / 100}). Secured ${bestCoveredIndices.length} meters of coverage.`
+            message: `[AUTO] Node ${bestCandidate.id} placed ${bestCandidate.bIdx !== undefined ? `on Building #${bestCandidate.bIdx + 1}` : 'on Map'} at (${Math.round(bestCandidate.x)}, ${Math.round(bestCandidate.y)}) facing ${bestCandidate.angle}°. (Score: ${Math.round(bestScore * 100) / 100}). Secured ${bestCoveredIndices.length} meters of coverage.`
         });
     }
 

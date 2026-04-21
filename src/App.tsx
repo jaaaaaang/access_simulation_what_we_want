@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Square, Minus, Play, RotateCcw, Image as ImageIcon, Terminal, Database, Search, ZoomIn, ZoomOut, RadioTower, Check, Sparkles } from 'lucide-react';
+import { Upload, Square, Minus, Play, RotateCcw, Image as ImageIcon, Terminal, Database, Search, ZoomIn, ZoomOut, RadioTower, Check, Sparkles, Download } from 'lucide-react';
 import { Point, Line, Polygon, SimulationParams, SimulationResult, Equipment } from './types';
 import { runSimulation, pointInPolygon, snapToPolygonEdge } from './lib/simulation';
 import { sampleBuildings, sampleVerandas } from './lib/sampleData';
@@ -7,6 +7,8 @@ import { sampleBuildings, sampleVerandas } from './lib/sampleData';
 import * as shp from 'shpjs';
 import { GoogleGenAI } from '@google/genai';
 import Markdown from 'react-markdown';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 export default function App() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -238,6 +240,34 @@ export default function App() {
     }, 50);
   };
 
+  const handleDownloadReport = async () => {
+    if (!result || !canvasRef.current) return;
+    
+    const zip = new JSZip();
+    
+    // 1. Add Canvas Image
+    const canvas = canvasRef.current;
+    const imgDataUrl = canvas.toDataURL("image/png");
+    const imgData = imgDataUrl.split(',')[1];
+    zip.file("simulation_result.png", imgData, { base64: true });
+
+    // 2. Add Logs
+    const logText = result.logs.map(l => `[${new Date().toLocaleTimeString()}] ${l.message}`).join('\n');
+    const finalReport = `Simulation Configuration:\n` +
+                        `Beam Width: ${params.beamWidth}°\n` + 
+                        `Max Range: ${params.maxRange}m\n` +
+                        `Target Coverage: ${params.targetCoverage}%\n` +
+                        `Strict Co-Location: ${params.strictCoLocation}\n\n` +
+                        `--- LOGS ---\n${logText}\n\n` +
+                        `--- AI INSIGHTS ---\n${aiInsights || 'No insights generated.'}`;
+    
+    zip.file("simulation_report.txt", finalReport);
+    
+    // 3. Generate and Download ZIP
+    const content = await zip.generateAsync({ type: "blob" });
+    saveAs(content, "rf_simulation_results.zip");
+  };
+
   const updateEqAngle = (id: string, newAngle: number) => {
       setManualEquipments(manualEquipments.map(eq => eq.id === id ? { ...eq, angle: newAngle } : eq));
       setResult(null);
@@ -264,26 +294,30 @@ export default function App() {
 
           const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
           
-          let buildingData = result.buildingCoverages?.map(bc => `Building ${bc.bIdx + 1}: ${bc.ratio.toFixed(0)}% (Covered ${bc.covered}/${bc.total})`).join('\n') || 'None';
+          let buildingData = result.buildingCoverages?.map(bc => `- 건물 ${bc.bIdx + 1}: ${bc.ratio.toFixed(0)}% (커버됨 ${bc.covered}m / 총 ${bc.total}m)`).join('\n') || '없음';
+          let equipmentData = result.logs.map(log => `- 장비 ${log.id}: ${log.coveredCount}m 커버 (전파 Score: ${log.score.toFixed(1)}, 평균 품질 효율: ${((log.score / log.coveredCount) * 100 || 0).toFixed(1)}%)`).join('\n') || '없음';
           
-          const prompt = `You are an expert telecom RF planner. Review the latest simulation results for establishing local equipment to cover verandas (windows) of buildings.
+          const prompt = `당신은 통신 RF 플래닝 전문가입니다. 건물 베란다(창문)를 커버하기 위한 국소 장비 위치 배치 알고리즘 시뮬레이션의 최신 결과를 분석해주세요.
           
-- Overall coverage: ${result.coverageRatio.toFixed(1)}% (Target was ${params.targetCoverage}%)
-- Equipment placed: ${result.equipments.length} nodes
-- Building Breakdowns:
+- 전체 커버리지: ${result.coverageRatio.toFixed(1)}% (목표치: ${params.targetCoverage}%)
+- 배치된 장비 수: ${result.equipments.length} 개
+- 건물별 커버리지 현황:
 ${buildingData}
+- 개별 장비 스펙 및 효율 수치 (Score/Meters = 평균 품질 효율%):
+${equipmentData}
 
-Parameters used:
-- Beam Width: ${params.beamWidth}°
-- Max Range: ${params.maxRange}m
-- Strict 1 Pole / Building: ${params.strictCoLocation ? 'Yes' : 'No'}
+사용된 파라미터:
+- 빔 폭(Beam Width): ${params.beamWidth}°
+- 최대 도달 거리(Max Range): ${params.maxRange}m
+- 엄격한 1건물 1폴대 제약(Strict 1 Pole / Building): ${params.strictCoLocation ? '적용됨' : '적용안됨'}
 
-Provide a short, concise, and structured analysis (use bullet points and markdown).
-1. Summarize the outcome. (Did we meet the target? Is the equipment count reasonable?)
-2. Detail problematic buildings (or praise excellent coverage). Briefly analyze why they might be poorly covered.
-3. Provide actionable, concise recommendations to improve coverage and save costs. Suggest tuning specific parameters (like beam width or range) or adding manual nodes pointing in particular directions.
+짧고 간결하면서 구조화된 분석을 제공하세요 (마크다운 불릿 포인트 사용).
+1. 결과 요약 (목표 커버리지 달성 여부, 투입된 장비 총 개수의 효율성).
+2. 문제가 있는(커버가 저조한) 건물 분석 또는 커버가 우수한 건물에 대한 구조적 이유 분석.
+3. 저효율 잉여 장비 식별 및 제거 제안 (중요!): 장비 목록 중, 평균 품질 효율(%)이 지나치게 낮거나, 커버하는 절대적인 미터(m) 수 자체가 너무 적은 장비들을 명확히 지목하세요. 이들을 제거했을 때 예상되는 전체 커버리지 하락폭이 미미함을 수치로 설명하며 제거를 강하게 권장하세요.
+4. 그 외 파라미터 튜닝(빔 폭, 거리) 등 실질적이고 간결한 추가 개선 권장 사항.
 
-Keep it highly readable, professional, and do not use generic AI filler words. Start right away with the analysis.`;
+불필요한 인사말 등은 생략하고 바로 분석을 시작하세요. 모든 답변은 명확하고 전문적인 한국어(Korean)로 작성하세요.`;
 
           const aiResponse = await ai.models.generateContentStream({
               model: 'gemini-3.1-pro-preview',
@@ -393,10 +427,12 @@ Keep it highly readable, professional, and do not use generic AI filler words. S
     // Draw manual equipments not yet simulated
     if (!result) {
       manualEquipments.forEach((eq) => {
-        const mainStart = (eq.angle - params.beamWidth / 2) * Math.PI / 180;
-        const mainEnd = (eq.angle + params.beamWidth / 2) * Math.PI / 180;
-        const leakLeftStart = (eq.angle - params.beamWidth / 2 - 15) * Math.PI / 180;
-        const leakRightEnd = (eq.angle + params.beamWidth / 2 + 15) * Math.PI / 180;
+        const angleRad = (eq.angle - 90) * Math.PI / 180;
+        const beamHalfConf = (params.beamWidth / 2) * Math.PI / 180;
+        const mainStart = angleRad - beamHalfConf;
+        const mainEnd = angleRad + beamHalfConf;
+        const leakLeftStart = angleRad - beamHalfConf - (15 * Math.PI / 180);
+        const leakRightEnd = angleRad + beamHalfConf + (15 * Math.PI / 180);
         const radius = params.maxRange * params.pixelsPerMeter * 0.4; // Preview beam
 
         // Left leakage
@@ -469,10 +505,13 @@ Keep it highly readable, professional, and do not use generic AI filler words. S
       const drawnNodes = new Map<string, number>();
 
       result.equipments.forEach((eq, index) => {
-        const mainStart = (eq.angle - params.beamWidth / 2) * Math.PI / 180;
-        const mainEnd = (eq.angle + params.beamWidth / 2) * Math.PI / 180;
-        const leakLeftStart = (eq.angle - params.beamWidth / 2 - 15) * Math.PI / 180;
-        const leakRightEnd = (eq.angle + params.beamWidth / 2 + 15) * Math.PI / 180;
+        // Adjust angle so 0 deg is North (Up - 12 o'clock)
+        const angleRad = (eq.angle - 90) * Math.PI / 180;
+        const beamHalfConf = (params.beamWidth / 2) * Math.PI / 180;
+        const mainStart = angleRad - beamHalfConf;
+        const mainEnd = angleRad + beamHalfConf;
+        const leakLeftStart = angleRad - beamHalfConf - (15 * Math.PI / 180);
+        const leakRightEnd = angleRad + beamHalfConf + (15 * Math.PI / 180);
         const radius = params.maxRange * params.pixelsPerMeter;
 
         // Left leakage (Yellow)
@@ -709,6 +748,13 @@ Keep it highly readable, professional, and do not use generic AI filler words. S
                     ))}
                  </div>
               </div>
+
+              <button 
+                onClick={handleDownloadReport}
+                className="w-full py-2 mt-4 bg-gray-800 text-white border border-border-color hover:bg-gray-700 rounded flex items-center justify-center transition-colors text-sm font-semibold"
+              >
+                <Download className="w-4 h-4 mr-2" /> Download Results (ZIP)
+              </button>
             </div>
           )}
 
