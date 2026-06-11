@@ -66,7 +66,14 @@ When the simulation finishes, a structured data payload with the simulation para
 - **Direct Output Format**: The AI is instructed to output strictly in professional Korean, outputting raw Markdown cleanly without any conversational filler or introductions.
 - **Node Culling Identification**: Armed with the the explicit "Average Quality Efficiency" derived above, the AI is explicitly directed to hunt for inefficient "surplus" equipment nodes. If Node 4 technically adds 50 meters of coverage but runs at a dismal 50% Quality Efficiency rate, the AI acts as the domain expert, analyzing whether the infrastructure investment validates the marginal network gain, ultimately suggesting node removals and consolidations.
 
-## 7. Simulation Logging & Export
+## 7. Topology Management & Drawing Tools
+- **Save/Load Topology**: Users can persist their drawn environment (buildings, verandas, manual equipment, and the background image map) by clicking "Save Topology". This exports a JSON schema (`rf_topology_project.json`). The "Load Topology" button completely reconstructs the canvas state from this JSON file, preventing repetitive manual drawing across sessions.
+- **Eraser Tool**: A precision eraser tool exists in the toolbar to intelligently remove elements without clearing the entire map. By clicking on the canvas, it respects a strict Z-index hierarchy:
+    1. Trashes Manual Equipment nodes overlapping within a 10px radius.
+    2. Trashes Verandas overlapping within a 10px orthogonal distance radius.
+    3. Trashes entire Buildings by calculating point-in-polygon overlaps. (This action safely decouples any manual equipment strictly attached to it).
+
+## 8. Simulation Logging & Export
 - **Absolute Positioning in Logs**: Every auto-placed and manually-placed equipment tracks exactly where it was placed. If it intersects or snaps to a building constraint, it outputs the unique 1-based building ID (e.g., `Building #2`) and absolute X/Y coordinate vector, resolving context gaps in plain-text logs.
 - **ZIP Payload Export**: Users can download a localized `rf_simulation_results.zip` package locally containing:
    - `simulation_result.png`: A direct snapshot string generated identically from the underlying HTML `<canvas>` representation.

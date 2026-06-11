@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Square, Minus, Play, RotateCcw, Image as ImageIcon, Terminal, Database, Search, ZoomIn, ZoomOut, RadioTower, Check, Sparkles, Download } from 'lucide-react';
+import { Upload, Square, Minus, Play, RotateCcw, Image as ImageIcon, Terminal, Database, Search, ZoomIn, ZoomOut, RadioTower, Check, Sparkles, Download, Eraser, Save, FolderOpen, X } from 'lucide-react';
 import { Point, Line, Polygon, SimulationParams, SimulationResult, Equipment } from './types';
 import { runSimulation, pointInPolygon, snapToPolygonEdge } from './lib/simulation';
 import { sampleBuildings, sampleVerandas } from './lib/sampleData';
@@ -9,13 +9,14 @@ import { GoogleGenAI } from '@google/genai';
 import Markdown from 'react-markdown';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [buildings, setBuildings] = useState<Polygon[]>([]);
   const [verandas, setVerandas] = useState<Line[]>([]);
   const [manualEquipments, setManualEquipments] = useState<Equipment[]>([]);
-  const [mode, setMode] = useState<'idle' | 'building' | 'veranda' | 'equipment'>('idle');
+  const [mode, setMode] = useState<'idle' | 'building' | 'veranda' | 'equipment' | 'eraser'>('idle');
   
   const [currentPolygon, setCurrentPolygon] = useState<Point[]>([]);
   const [currentLineStart, setCurrentLineStart] = useState<Point | null>(null);
@@ -36,6 +37,7 @@ export default function App() {
   
   const [aiInsights, setAiInsights] = useState<string | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -43,22 +45,26 @@ export default function App() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    
-    const img = new Image();
-    img.onload = () => {
-      imageRef.current = img;
-      setImageSrc(url);
-      setCanvasSize({width: img.width, height: img.height});
-      if (canvasRef.current) {
-        canvasRef.current.width = img.width;
-        canvasRef.current.height = img.height;
-      }
-      setBuildings([]);
-      setVerandas([]);
-      setResult(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const url = event.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        imageRef.current = img;
+        setImageSrc(url);
+        setCanvasSize({width: img.width, height: img.height});
+        if (canvasRef.current) {
+          canvasRef.current.width = img.width;
+          canvasRef.current.height = img.height;
+        }
+        setBuildings([]);
+        setVerandas([]);
+        setResult(null);
+      };
+      img.src = url;
     };
-    img.src = url;
+    reader.readAsDataURL(file);
   };
 
   const handleShpUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,6 +160,16 @@ export default function App() {
      }
   };
 
+  const distSq = (v: Point, w: Point) => (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
+  const distToSegmentSquared = (p: Point, v: Point, w: Point) => {
+    let l2 = distSq(v, w);
+    if (l2 === 0) return distSq(p, v);
+    let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return distSq(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) });
+  };
+  const distToSegment = (p: Point, v: Point, w: Point) => Math.sqrt(distToSegmentSquared(p, v, w));
+
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -183,6 +199,31 @@ export default function App() {
            isManual: true
        }]);
        setResult(null);
+    } else if (mode === 'eraser') {
+      // Priority 1: Eraser Manual Equipment
+      const eqIdx = manualEquipments.findIndex(eq => Math.sqrt((eq.x - p.x)**2 + (eq.y - p.y)**2) < 10);
+      if (eqIdx >= 0) {
+        setManualEquipments(manualEquipments.filter((_, i) => i !== eqIdx));
+        setResult(null);
+        return;
+      }
+      
+      // Priority 2: Eraser Verandas
+      const vIdx = verandas.findIndex(v => distToSegment(p, v.start, v.end) < 10);
+      if (vIdx >= 0) {
+        setVerandas(verandas.filter((_, i) => i !== vIdx));
+        setResult(null);
+        return;
+      }
+
+      // Priority 3: Eraser Buildings
+      const bIdx = buildings.findIndex(b => pointInPolygon(p, b));
+      if (bIdx >= 0) {
+        setBuildings(buildings.filter((_, i) => i !== bIdx));
+        // Also remove any Manual Equipments strictly attached to this building index
+        setManualEquipments(manualEquipments.filter(eq => eq.bIdx !== bIdx));
+        setResult(null);
+      }
     }
   };
 
@@ -215,6 +256,98 @@ export default function App() {
     setCurrentLineStart(null);
     setResult(null);
     setAiInsights(null);
+  };
+
+  const handleSaveTopology = () => {
+    const topologyData = {
+      buildings,
+      verandas,
+      manualEquipments,
+      imageSrc,
+      canvasSize: canvasSize
+    };
+    const blob = new Blob([JSON.stringify(topologyData, null, 2)], { type: "application/json" });
+    saveAs(blob, "rf_topology_project.json");
+  };
+
+  const handleLoadTopology = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (json.buildings) setBuildings(json.buildings);
+        if (json.verandas) setVerandas(json.verandas);
+        if (json.manualEquipments) setManualEquipments(json.manualEquipments);
+        
+        let targetWidth = 1000;
+        let targetHeight = 1000;
+        if (json.canvasSize) {
+           targetWidth = json.canvasSize.width;
+           targetHeight = json.canvasSize.height;
+        } else {
+           // Fallback to finding max bounds if no canvas size was saved
+           let maxX = 1000; let maxY = 1000;
+           (json.buildings || []).forEach((poly: any) => poly.forEach((p: any) => {
+               if (p.x > maxX) maxX = p.x;
+               if (p.y > maxY) maxY = p.y;
+           }));
+           (json.verandas || []).forEach((v: any) => {
+               if (v.start.x > maxX) maxX = v.start.x;
+               if (v.start.y > maxY) maxY = v.start.y;
+               if (v.end.x > maxX) maxX = v.end.x;
+               if (v.end.y > maxY) maxY = v.end.y;
+           });
+           targetWidth = Math.max(1000, maxX + 50);
+           targetHeight = Math.max(1000, maxY + 50);
+        }
+
+        if (json.imageSrc) {
+          const img = new Image();
+          img.onload = () => {
+            imageRef.current = img;
+            setImageSrc(json.imageSrc);
+            
+            // Prioritize image size over saved canvas size to prevent mismatch
+            const finalWidth = Math.max(targetWidth, img.width);
+            const finalHeight = Math.max(targetHeight, img.height);
+            setCanvasSize({width: finalWidth, height: finalHeight});
+            if (canvasRef.current) {
+              canvasRef.current.width = finalWidth;
+              canvasRef.current.height = finalHeight;
+            }
+          };
+          img.onerror = () => {
+            console.warn("Failed to load image from saved topology (likely an expired blob URL). Continuing without image.");
+            setImageSrc(null);
+            imageRef.current = null;
+            // Proceed with just the coordinates
+            setCanvasSize({width: targetWidth, height: targetHeight});
+            if (canvasRef.current) {
+              canvasRef.current.width = targetWidth;
+              canvasRef.current.height = targetHeight;
+            }
+          };
+          img.src = json.imageSrc;
+        } else {
+          setImageSrc(null);
+          setCanvasSize({width: targetWidth, height: targetHeight});
+          if (canvasRef.current) {
+            canvasRef.current.width = targetWidth;
+            canvasRef.current.height = targetHeight;
+          }
+        }
+        
+        setResult(null);
+        e.target.value = ''; // Reset input
+      } catch (err) {
+        console.error("Failed to parse topology JSON", err);
+        alert("Invalid topology file structure.");
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleEvaluateCurrent = () => {
@@ -593,31 +726,47 @@ ${equipmentData}
                   <input type="file" className="hidden" accept=".zip" onChange={handleShpUpload} />
                 </label>
             </div>
-            <button onClick={loadSampleData} className="w-full py-1.5 bg-bg-accent border border-border-color rounded text-xs text-text-secondary hover:text-white transition-colors flex items-center justify-center">
+            <div className="grid grid-cols-2 gap-2 mb-2">
+               <button onClick={handleSaveTopology} className="w-full py-1.5 bg-bg-accent border border-border-color rounded text-xs text-text-secondary hover:text-white transition-colors flex items-center justify-center">
+                 <Save className="w-3 h-3 mr-1" /> Save Topology
+               </button>
+               <label className="w-full py-1.5 bg-bg-accent border border-border-color rounded text-xs text-text-secondary hover:text-white transition-colors flex items-center justify-center cursor-pointer">
+                 <FolderOpen className="w-3 h-3 mr-1" /> Load Topology
+                 <input type="file" className="hidden" accept=".json" onChange={handleLoadTopology} />
+               </label>
+            </div>
+            <button onClick={loadSampleData} className="w-full py-1.5 bg-gray-800 border border-border-color rounded text-xs text-text-secondary hover:text-white transition-colors flex items-center justify-center">
               <Search className="w-3 h-3 mr-1" /> Load Sample Data
             </button>
           </section>
 
           <section>
             <h2 className="text-xs font-semibold text-text-secondary mb-2 uppercase tracking-[1.5px] border-b border-border-color pb-1">2. Draw Areas</h2>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button 
                 onClick={() => setMode('building')}
                 className={`flex flex-col items-center p-3 rounded border ${mode === 'building' ? 'bg-bg-accent border-accent text-accent' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
               >
                 <Square className="w-5 h-5 mb-1" />
-                <span className="text-xs font-medium">Building</span>
+                <span className="text-[10px] font-medium">Building</span>
               </button>
               <button 
                 onClick={() => setMode('veranda')}
                 className={`flex flex-col items-center p-3 rounded border ${mode === 'veranda' ? 'bg-bg-accent border-warning text-warning' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
               >
                 <Minus className="w-5 h-5 mb-1" />
-                <span className="text-xs font-medium">Veranda</span>
+                <span className="text-[10px] font-medium">Veranda</span>
+              </button>
+              <button 
+                onClick={() => setMode('eraser')}
+                className={`flex flex-col items-center p-3 rounded border ${mode === 'eraser' ? 'bg-bg-accent border-error text-error' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
+              >
+                <Eraser className="w-5 h-5 mb-1" />
+                <span className="text-[10px] font-medium">Eraser</span>
               </button>
               <button 
                 onClick={() => setMode('equipment')}
-                className={`flex flex-col items-center p-3 rounded border ${mode === 'equipment' ? 'bg-bg-accent border-[#ffb300] text-[#ffb300]' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'} col-span-2`}
+                className={`flex flex-col items-center p-3 rounded border ${mode === 'equipment' ? 'bg-bg-accent border-[#ffb300] text-[#ffb300]' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'} col-span-3`}
               >
                 <RadioTower className="w-5 h-5 mb-1" />
                 <span className="text-xs font-medium">Place Manual Node</span>
@@ -627,6 +776,7 @@ ${equipmentData}
               {mode === 'building' && "Click to add points. Right-click to finish polygon."}
               {mode === 'veranda' && "Click start and end points to draw a line."}
               {mode === 'equipment' && "Click anywhere to place a custom node."}
+              {mode === 'eraser' && "Click on a building, veranda, or node to remove it."}
               {mode === 'idle' && "Select a tool to start drawing."}
             </p>
             <button onClick={clearDrawing} className="mt-2 text-xs text-text-secondary hover:text-text-primary flex items-center">
@@ -716,27 +866,6 @@ ${equipmentData}
 
               <div className="bg-bg-accent rounded border border-border-color overflow-hidden flex flex-col">
                  <div className="bg-gray-900 border-b border-border-color p-2 flex items-center text-xs text-text-secondary font-mono">
-                    <Sparkles className="w-4 h-4 mr-2 text-accent" />
-                    AI INSIGHTS 
-                 </div>
-                 <div className="p-3">
-                    {!aiInsights && !isGeneratingInsights && (
-                        <button onClick={handleGenerateAIInsights} className="w-full py-2 bg-[#ffb300]/20 text-[#ffb300] font-medium rounded text-xs hover:bg-[#ffb300]/40 transition-colors border border-[#ffb300]/50">
-                            ✨ Analyze Results & Recommendations
-                        </button>
-                    )}
-                    {(isGeneratingInsights || aiInsights) && (
-                        <div className="text-sm text-gray-300">
-                           <div className="markdown-body">
-                             <Markdown>{aiInsights || 'Analyzing results...'}</Markdown>
-                           </div>
-                        </div>
-                    )}
-                 </div>
-              </div>
-
-              <div className="bg-bg-accent rounded border border-border-color overflow-hidden flex flex-col">
-                 <div className="bg-gray-900 border-b border-border-color p-2 flex items-center text-xs text-text-secondary font-mono">
                     <Terminal className="w-4 h-4 mr-2 text-accent" />
                     SIMULATION LOG
                  </div>
@@ -801,6 +930,73 @@ ${equipmentData}
               />
             </div>
           )}
+
+          {/* Floating AI UI */}
+          <AnimatePresence>
+            {result && (
+              <div className="fixed bottom-6 right-6 flex flex-col items-end space-y-4 z-50">
+                {showAiPanel && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                    className="w-96 max-h-[70vh] bg-bg-panel border border-border-color rounded-xl shadow-2xl flex flex-col overflow-hidden"
+                  >
+                    <div className="bg-gray-900 p-3 border-b border-border-color flex justify-between items-center">
+                      <div className="flex items-center text-xs text-warning font-bold tracking-wider uppercase">
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        AI Analysis
+                      </div>
+                      <button onClick={() => setShowAiPanel(false)} className="text-text-secondary hover:text-white p-1 hover:bg-white/5 rounded transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                      {!aiInsights && !isGeneratingInsights ? (
+                        <div className="h-full flex flex-col items-center justify-center text-center py-8">
+                          <Sparkles className="w-12 h-12 text-[#ffb300] mb-4 opacity-20" />
+                          <p className="text-xs text-text-secondary mb-4">Click below to generate detailed insights about the simulation results.</p>
+                          <button 
+                            onClick={handleGenerateAIInsights} 
+                            className="px-6 py-2 bg-warning text-black font-bold rounded-lg text-xs hover:bg-[#ffca28] transition-colors"
+                          >
+                            Generate Insights
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-300 leading-relaxed">
+                          <div className="markdown-body">
+                            <Markdown>{aiInsights || 'Analyzing results...'}</Markdown>
+                          </div>
+                          {isGeneratingInsights && (
+                            <div className="flex items-center mt-4 text-warning text-xs">
+                              <RotateCcw className="w-3 h-3 mr-2 animate-spin" />
+                              Processing simulation data...
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+
+                <motion.button
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowAiPanel(!showAiPanel)}
+                  className={`px-8 py-4 rounded-2xl flex items-center justify-center shadow-2xl transition-all duration-300 border-2 z-50 group shadow-warning/20 ${
+                    showAiPanel 
+                    ? 'bg-white border-warning text-black' 
+                    : 'bg-warning border-white/20 text-black'
+                  }`}
+                >
+                  <Sparkles className={`w-5 h-5 mr-3 ${showAiPanel ? 'text-warning' : 'text-black'}`} />
+                  <span className="font-bold text-lg tracking-tight uppercase">AI Insights</span>
+                  {showAiPanel && <X className="w-5 h-5 ml-3 text-black/50" />}
+                </motion.button>
+              </div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>
