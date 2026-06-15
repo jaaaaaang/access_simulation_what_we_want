@@ -1,5 +1,5 @@
-import { runSimulation } from './src/lib/simulation';
-import { Polygon, Line } from './src/types';
+import { runSimulation } from '../../src/lib/simulation';
+import { Polygon, Line } from '../../src/types';
 
 const buildings: Polygon[] = [
   [{ x: 300, y: 300 }, { x: 450, y: 300 }, { x: 450, y: 400 }, { x: 300, y: 400 }],
@@ -15,7 +15,7 @@ const verandas: Line[] = [
   { start: { x: 500, y: 600 }, end: { x: 650, y: 600 } }
 ];
 
-const params = { beamWidth: 60, maxRange: 150, targetCoverage: 0, pixelsPerMeter: 2, maxCapacity: 50 };
+const params = { beamWidth: 60, maxRange: 150, targetCoverage: 0, pixelsPerMeter: 2, maxCapacity: 50, strictCoLocation: true };
 
 const manualEquipments = [
   { id: "M-1", x: 228, y: 518, angle: 293, isManual: true, bIdx: undefined },

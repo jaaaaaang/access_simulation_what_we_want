@@ -1,6 +1,8 @@
 {
-  "name": "",
-  "description": "",
+  "name": "RF Planning Simulator",
+  "description": "VWorld GIS 연동 건물 및 베란다 데이터 기반 RF 전파 장비 최적 배치 시뮬레이트 도구",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

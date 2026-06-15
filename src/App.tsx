@@ -1,17 +1,68 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Square, Minus, Play, RotateCcw, Image as ImageIcon, Terminal, Database, Search, ZoomIn, ZoomOut, RadioTower, Check, Sparkles, Download, Eraser, Save, FolderOpen, X } from 'lucide-react';
+import { Upload, Square, Minus, Play, RotateCcw, Image as ImageIcon, Terminal, Database, Search, ZoomIn, ZoomOut, RadioTower, Check, Sparkles, Download, Eraser, Save, FolderOpen, X, AlertTriangle, Info } from 'lucide-react';
 import { Point, Line, Polygon, SimulationParams, SimulationResult, Equipment } from './types';
 import { runSimulation, pointInPolygon, snapToPolygonEdge } from './lib/simulation';
 import { sampleBuildings, sampleVerandas } from './lib/sampleData';
 // @ts-ignore
 import * as shp from 'shpjs';
-import { GoogleGenAI } from '@google/genai';
 import Markdown from 'react-markdown';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { motion, AnimatePresence } from 'motion/react';
 
+// Helper for JSONP calls on the client side to bypass both browser CORS policies and cloud provider IP (WAF) blocks natively
+const fetchJSONP = (url: string): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    const callbackName = `vworld_jsonp_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+    const script = document.createElement("script");
+    
+    const hasQuestionMark = url.includes("?");
+    const separator = hasQuestionMark ? "&" : "?";
+    const jsonpUrl = `${url}${separator}callback=${callbackName}`;
+    
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      reject(new Error("VWorld OpenAPI 요청 시간 초과 (12초). 입력하신 브이월드 API Key 또는 등록 도메인 설정을 확인해 주세요."));
+    }, 12000);
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+      delete (window as any)[callbackName];
+    };
+
+    (window as any)[callbackName] = (data: any) => {
+      cleanup();
+      resolve(data);
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("네트워크 보안 로드 실패 (브라우저가 브이월드 서버에 연결을 완료하지 못했거나, 키 발급 시 등록한 도메인과 현재 접속 도메인이 불일치합니다.)"));
+    };
+
+    script.src = jsonpUrl;
+    script.async = true;
+    document.body.appendChild(script);
+  });
+};
+
 export default function App() {
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
+
+  const showAppNotification = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setNotification({ message, type });
+    setTimeout(() => {
+      setNotification(prev => prev?.message === message ? null : prev);
+    }, 8500);
+  };
+
+  const stripHtml = (htmlStr: string): string => {
+    return htmlStr.replace(/<[^>]*>/g, '').trim();
+  };
+
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [buildings, setBuildings] = useState<Polygon[]>([]);
   const [verandas, setVerandas] = useState<Line[]>([]);
@@ -38,6 +89,33 @@ export default function App() {
   const [aiInsights, setAiInsights] = useState<string | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
+
+  // VWorld API and mapping state definitions
+  const [geoMapping, setGeoMapping] = useState<{
+    minLon: number;
+    minLat: number;
+    lonRange: number;
+    latRange: number;
+    cWidth: number;
+    cHeight: number;
+  } | null>(null);
+
+  const [vworldKey, setVworldKey] = useState<string>(() => {
+    return localStorage.getItem('vworld_api_key') || ((import.meta as any).env?.VITE_VWORLD_API_KEY as string) || '';
+  });
+  const [vworldDomain, setVworldDomain] = useState<string>(() => {
+    return localStorage.getItem('vworld_api_domain') || window.location.origin;
+  });
+  const [vworldRequestMode, setVworldRequestMode] = useState<'direct' | 'proxy'>(() => {
+    return (localStorage.getItem('vworld_request_mode') as 'direct' | 'proxy') || 'direct';
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchCandidates, setSearchCandidates] = useState<any[]>([]);
+  const [searchStatus, setSearchStatus] = useState<'idle' | 'searching' | 'success' | 'error' | 'no_result'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isFetchingPolygons, setIsFetchingPolygons] = useState(false);
+  const [searchLayer, setSearchLayer] = useState<'LT_C_SPBD' | 'LT_C_BLDINFO'>('LT_C_SPBD');
+  const [useNameFilter, setUseNameFilter] = useState(true);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -135,13 +213,21 @@ export default function App() {
       setManualEquipments([]);
       setResult(null);
       setMode('idle');
+      setGeoMapping({
+        minLon,
+        minLat,
+        lonRange,
+        latRange,
+        cWidth,
+        cHeight
+      });
       if (canvasRef.current) {
         canvasRef.current.width = cWidth;
         canvasRef.current.height = cHeight;
       }
     } catch (err) {
        console.error("SHP Parse Error:", err);
-       alert("SHP 파일 파싱에 실패했습니다. 올바른 형태의 zip 데이터인지 확인해 주세요.");
+       showAppNotification("SHP 파일 파싱에 실패했습니다. 올바른 형태의 zip 데이터인지 확인해 주세요.", "error");
     }
   };
 
@@ -264,7 +350,8 @@ export default function App() {
       verandas,
       manualEquipments,
       imageSrc,
-      canvasSize: canvasSize
+      canvasSize: canvasSize,
+      geoMapping
     };
     const blob = new Blob([JSON.stringify(topologyData, null, 2)], { type: "application/json" });
     saveAs(blob, "rf_topology_project.json");
@@ -281,6 +368,8 @@ export default function App() {
         if (json.buildings) setBuildings(json.buildings);
         if (json.verandas) setVerandas(json.verandas);
         if (json.manualEquipments) setManualEquipments(json.manualEquipments);
+        if (json.geoMapping) setGeoMapping(json.geoMapping);
+        else setGeoMapping(null);
         
         let targetWidth = 1000;
         let targetHeight = 1000;
@@ -344,10 +433,291 @@ export default function App() {
         e.target.value = ''; // Reset input
       } catch (err) {
         console.error("Failed to parse topology JSON", err);
-        alert("Invalid topology file structure.");
+        showAppNotification("올바르지 않은 토폴로지 JSON 파일 구조입니다.", "error");
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleVWorldSearch = async () => {
+    if (!vworldKey.trim()) {
+      showAppNotification("브이월드 인증키를 입력해주세요.", "warning");
+      return;
+    }
+    if (!searchQuery.trim()) {
+      showAppNotification("검색어를 입력해주세요. (예: 은마아파트, 반포자이)", "warning");
+      return;
+    }
+
+    setSearchStatus('searching');
+    setSearchCandidates([]);
+    setErrorMessage('');
+
+    try {
+      localStorage.setItem('vworld_api_key', vworldKey.trim());
+      localStorage.setItem('vworld_api_domain', vworldDomain.trim());
+      localStorage.setItem('vworld_request_mode', vworldRequestMode);
+      const encodeQuery = encodeURIComponent(searchQuery);
+      // VWorld Search API 2.0 (place type search)
+      const url = `https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=15&query=${encodeQuery}&type=place&format=json&key=${vworldKey.trim()}&domain=${encodeURIComponent(vworldDomain.trim())}`;
+      
+      let data: any;
+
+      if (vworldRequestMode === 'direct') {
+        data = await fetchJSONP(url);
+      } else {
+        const targetFetchUrl = `/api/vworld-proxy?url=${encodeURIComponent(url)}`;
+        const res = await fetch(targetFetchUrl);
+        const text = await res.text();
+        try {
+          data = JSON.parse(text);
+        } catch (err) {
+          throw new Error(`서버 프록시 에러 (구글 서버 IP 대역 차단 가능성 높음): ${text.substring(0, 150)}... 해결법: 호출 방식을 '직접 호출 (WAF 우회 권장)'로 설정해 주세요.`);
+        }
+      }
+
+      if (data.response && data.response.status === 'OK' && data.response.result) {
+        let items = data.response.result.items || [];
+        if (!Array.isArray(items)) {
+          items = [items];
+        }
+        setSearchCandidates(items);
+        setSearchStatus('success');
+      } else {
+        const status = data.response?.status || 'UNKNOWN';
+        const errorMsg = data.response?.error || '검색 결과가 없거나 인증키 및 도메인이 올바르지 않습니다.';
+        if (status === 'NOT_FOUND' || status === 'EMPTY') {
+          setSearchStatus('no_result');
+        } else {
+          setSearchStatus('error');
+          let extraHelp = '';
+          if (vworldRequestMode === 'proxy') {
+            extraHelp = ' (구글 클라우드 서버IP 차단 예방을 위해 "내 브라우저에서 직접 호출" 모드로 변경해 보시는 것을 권장합니다.)';
+          }
+          setErrorMessage(`에러: ${status} - ${errorMsg}${extraHelp}`);
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      setSearchStatus('error');
+      let extraHelp = '';
+      if (vworldRequestMode === 'proxy') {
+        extraHelp = ' [구글 클라우드 서버 IP 대역 대개 차단 때문일 수 있으므로 "내 브라우저에서 직접 호출"을 권장합니다.]';
+      }
+      setErrorMessage(`네트워크 오류: ${err.message}.${extraHelp} CORS 정책 또는 브이월드에 등록된 도메인 설정을 확인해 주세요.`);
+    }
+  };
+
+  const handleSelectCandidate = async (candidate: any) => {
+    if (!candidate.point || !candidate.point.x || !candidate.point.y) {
+      showAppNotification("선택한 객체에 좌표 정보가 없습니다.", "warning");
+      return;
+    }
+
+    setIsFetchingPolygons(true);
+    const lon = Number(candidate.point.x);
+    const lat = Number(candidate.point.y);
+
+    // Create bounds (~600m radius around matched point)
+    const minLon = lon - 0.007;
+    const maxLon = lon + 0.007;
+    const minLat = lat - 0.005;
+    const maxLat = lat + 0.005;
+
+    const geomFilter = `BOX(${minLon},${minLat},${maxLon},${maxLat})`;
+    const cleanTitle = stripHtml(candidate.title || '');
+    const apartmentName = cleanTitle.split(/\s+/)[0]; 
+
+    try {
+      // VWorld Data API 2.0 GetFeature
+      let url = `https://api.vworld.kr/req/data?service=data&request=GetFeature&data=${searchLayer}&key=${vworldKey.trim()}&format=json&crs=EPSG:4326&size=100&geomFilter=${geomFilter}&domain=${encodeURIComponent(vworldDomain.trim())}`;
+
+      if (useNameFilter && apartmentName) {
+        const encodedName = encodeURIComponent(apartmentName);
+        url += `&attrFilter=buld_nm:like:${encodedName}`;
+      }
+
+      let data: any;
+      if (vworldRequestMode === 'direct') {
+        data = await fetchJSONP(url);
+      } else {
+        const targetFetchUrl = `/api/vworld-proxy?url=${encodeURIComponent(url)}`;
+        const res = await fetch(targetFetchUrl);
+        const text = await res.text();
+        try {
+          data = JSON.parse(text);
+        } catch (err) {
+          throw new Error(`서버 프록시 에러 (구글 서버 IP 대역 차단 가능성 높음): ${text.substring(0, 150)}... 해결법: 호출 방식을 '직접 호출 (WAF 우회 권장)'로 설정해 주세요.`);
+        }
+      }
+
+      if (data.response && data.response.status === 'OK' && data.response.result) {
+        const featureCollection = data.response.result.featureCollection;
+        if (featureCollection && featureCollection.features && featureCollection.features.length > 0) {
+          const features = featureCollection.features;
+
+          let localMinLon = Infinity, localMinLat = Infinity, localMaxLon = -Infinity, localMaxLat = -Infinity;
+          
+          features.forEach((f: any) => {
+            if (f.geometry && f.geometry.type === 'Polygon') {
+              f.geometry.coordinates[0].forEach((coord: number[]) => {
+                localMinLon = Math.min(localMinLon, coord[0]);
+                localMinLat = Math.min(localMinLat, coord[1]);
+                localMaxLon = Math.max(localMaxLon, coord[0]);
+                localMaxLat = Math.max(localMaxLat, coord[1]);
+              });
+            } else if (f.geometry && f.geometry.type === 'MultiPolygon') {
+              f.geometry.coordinates.forEach((poly: number[][][]) => {
+                poly[0].forEach((coord: number[]) => {
+                  localMinLon = Math.min(localMinLon, coord[0]);
+                  localMinLat = Math.min(localMinLat, coord[1]);
+                  localMaxLon = Math.max(localMaxLon, coord[0]);
+                  localMaxLat = Math.max(localMaxLat, coord[1]);
+                });
+              });
+            }
+          });
+
+          if (localMinLon === Infinity) {
+             throw new Error("가져온 건물 폴리곤에 올바른 공간 좌표 데이터가 포함되어 있지 않습니다.");
+          }
+
+          const lonRange = (localMaxLon - localMinLon) || 0.0001;
+          const latRange = (localMaxLat - localMinLat) || 0.0001;
+          const cWidth = 1200; 
+          const cHeight = 800;
+
+          const parsedBuildings: Polygon[] = [];
+          features.forEach((f: any) => {
+               if (f.geometry && f.geometry.type === 'Polygon') {
+                    const poly = f.geometry.coordinates[0].map((coord: number[]) => {
+                         const x = ((coord[0] - localMinLon) / lonRange) * (cWidth * 0.8) + (cWidth * 0.1);
+                         const y = cHeight - (((coord[1] - localMinLat) / latRange) * (cHeight * 0.8) + (cHeight * 0.1)); 
+                         return {x, y};
+                    });
+                    parsedBuildings.push(poly);
+               } else if (f.geometry && f.geometry.type === 'MultiPolygon') {
+                    f.geometry.coordinates.forEach((multiPoly: number[][][]) => {
+                        const poly = multiPoly[0].map((coord: number[]) => {
+                             const x = ((coord[0] - localMinLon) / lonRange) * (cWidth * 0.8) + (cWidth * 0.1);
+                             const y = cHeight - (((coord[1] - localMinLat) / latRange) * (cHeight * 0.8) + (cHeight * 0.1)); 
+                             return {x, y};
+                        });
+                        parsedBuildings.push(poly);
+                    });
+               }
+          });
+
+          setCanvasSize({width: cWidth, height: cHeight});
+          setImageSrc(null); 
+          imageRef.current = null;
+          setBuildings(parsedBuildings);
+          setVerandas([]); 
+          setManualEquipments([]);
+          setResult(null);
+          setMode('idle');
+          setGeoMapping({
+            minLon: localMinLon,
+            minLat: localMinLat,
+            lonRange,
+            latRange,
+            cWidth,
+            cHeight
+          });
+
+          if (canvasRef.current) {
+            canvasRef.current.width = cWidth;
+            canvasRef.current.height = cHeight;
+          }
+
+          showAppNotification(`성공적으로 ${parsedBuildings.length}개의 건물 폴리곤을 가져와 시뮬레이션 보드에 배치했습니다!`, "success");
+        } else {
+          showAppNotification(`해당 영역 또는 단지 조건(${apartmentName})으로 가져온 건물 데이터가 레이어에 없습니다. 레이어를 변경하거나 필터를 끄고 다시 로드해 보세요.`, "warning");
+        }
+      } else {
+        const errorMsg = data.response?.error || '건물 데이터를 가져오지 못했습니다. API 제한량 또는 인증키 설정을 확인하세요.';
+        showAppNotification(`인식 에러: ${errorMsg}`, "error");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showAppNotification(`폴리곤 로드에 실패했습니다: ${err.message}`, "error");
+    } finally {
+      setIsFetchingPolygons(false);
+    }
+  };
+
+  const handleExportGeoJSON = () => {
+    if (buildings.length === 0 && verandas.length === 0) {
+      showAppNotification("내보낼 데이터(건물 또는 베란다)가 없습니다.", "warning");
+      return;
+    }
+
+    const features: any[] = [];
+
+    // Fallback if no geoMapping coordinates are set
+    const mapping = geoMapping || {
+      minLon: 127.0276,
+      minLat: 37.4979,
+      lonRange: 0.005,
+      latRange: 0.004,
+      cWidth: canvasSize.width,
+      cHeight: canvasSize.height
+    };
+
+    const canvasToLonLat = (p: Point) => {
+      const lon = mapping.minLon + mapping.lonRange * ((p.x - mapping.cWidth * 0.1) / (mapping.cWidth * 0.8));
+      const lat = mapping.minLat + mapping.latRange * ((mapping.cHeight - p.y - mapping.cHeight * 0.1) / (mapping.cHeight * 0.8));
+      return [lon, lat];
+    };
+
+    // 1. Export Buildings as GeoJSON Polygon Features
+    buildings.forEach((poly, idx) => {
+      if (poly.length === 0) return;
+      const coords = poly.map(canvasToLonLat);
+      // Close coordinates polygon loop
+      if (coords.length > 0 && (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1])) {
+        coords.push([coords[0][0], coords[0][1]]);
+      }
+      features.push({
+        type: "Feature",
+        properties: {
+          id: `building-${idx + 1}`,
+          type: "building",
+          name: `건물_${idx + 1}동`
+        },
+        geometry: {
+          type: "Polygon",
+          coordinates: [coords]
+        }
+      });
+    });
+
+    // 2. Export Verandas as a single MultiLineString feature
+    if (verandas.length > 0) {
+      const lineStrings = verandas.map(line => [
+        canvasToLonLat(line.start),
+        canvasToLonLat(line.end)
+      ]);
+      features.push({
+        type: "Feature",
+        properties: {
+          type: "veranda",
+          name: "베란다 MultiLine"
+        },
+        geometry: {
+          type: "MultiLineString",
+          coordinates: lineStrings
+        }
+      });
+    }
+
+    const geoJsonData = {
+      type: "FeatureCollection",
+      features: features
+    };
+
+    const blob = new Blob([JSON.stringify(geoJsonData, null, 2)], { type: "application/json" });
+    saveAs(blob, "rf_topology_geojson.json");
   };
 
   const handleEvaluateCurrent = () => {
@@ -418,53 +788,22 @@ export default function App() {
       setIsGeneratingInsights(true);
       setAiInsights("");
       try {
-          // Verify environment
-          if (!process.env.GEMINI_API_KEY) {
-               setAiInsights("Failed: GEMINI_API_KEY is not defined in the environment. Please add it to your setup.");
-               setIsGeneratingInsights(false);
-               return;
-          }
-
-          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-          
-          let buildingData = result.buildingCoverages?.map(bc => `- 건물 ${bc.bIdx + 1}: ${bc.ratio.toFixed(0)}% (커버됨 ${bc.covered}m / 총 ${bc.total}m)`).join('\n') || '없음';
-          let equipmentData = result.logs.map(log => `- 장비 ${log.id}: ${log.coveredCount}m 커버 (전파 Score: ${log.score.toFixed(1)}, 평균 품질 효율: ${((log.score / log.coveredCount) * 100 || 0).toFixed(1)}%)`).join('\n') || '없음';
-          
-          const prompt = `당신은 통신 RF 플래닝 전문가입니다. 건물 베란다(창문)를 커버하기 위한 국소 장비 위치 배치 알고리즘 시뮬레이션의 최신 결과를 분석해주세요.
-          
-- 전체 커버리지: ${result.coverageRatio.toFixed(1)}% (목표치: ${params.targetCoverage}%)
-- 배치된 장비 수: ${result.equipments.length} 개
-- 건물별 커버리지 현황:
-${buildingData}
-- 개별 장비 스펙 및 효율 수치 (Score/Meters = 평균 품질 효율%):
-${equipmentData}
-
-사용된 파라미터:
-- 빔 폭(Beam Width): ${params.beamWidth}°
-- 최대 도달 거리(Max Range): ${params.maxRange}m
-- 엄격한 1건물 1폴대 제약(Strict 1 Pole / Building): ${params.strictCoLocation ? '적용됨' : '적용안됨'}
-
-짧고 간결하면서 구조화된 분석을 제공하세요 (마크다운 불릿 포인트 사용).
-1. 결과 요약 (목표 커버리지 달성 여부, 투입된 장비 총 개수의 효율성).
-2. 문제가 있는(커버가 저조한) 건물 분석 또는 커버가 우수한 건물에 대한 구조적 이유 분석.
-3. 저효율 잉여 장비 식별 및 제거 제안 (중요!): 장비 목록 중, 평균 품질 효율(%)이 지나치게 낮거나, 커버하는 절대적인 미터(m) 수 자체가 너무 적은 장비들을 명확히 지목하세요. 이들을 제거했을 때 예상되는 전체 커버리지 하락폭이 미미함을 수치로 설명하며 제거를 강하게 권장하세요.
-4. 그 외 파라미터 튜닝(빔 폭, 거리) 등 실질적이고 간결한 추가 개선 권장 사항.
-
-불필요한 인사말 등은 생략하고 바로 분석을 시작하세요. 모든 답변은 명확하고 전문적인 한국어(Korean)로 작성하세요.`;
-
-          const aiResponse = await ai.models.generateContentStream({
-              model: 'gemini-3.1-pro-preview',
-              contents: prompt,
+          const res = await fetch("/api/ai-insights", {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ result, params })
           });
-
-          let fullText = "";
-          for await (const chunk of aiResponse) {
-              fullText += chunk.text;
-              setAiInsights(fullText);
+          const data = await res.json();
+          if (data.error) {
+              setAiInsights(`Failed to generate AI insights: ${data.error}`);
+          } else {
+              setAiInsights(data.text || "Insights loaded.");
           }
       } catch (e: any) {
           console.error(e);
-          setAiInsights("Failed to generate AI insights: " + e.message + "\nPlease check your network or API Key.");
+          setAiInsights("Failed to generate AI insights: " + e.message + "\nPlease check your network or server configuration.");
       } finally {
           setIsGeneratingInsights(false);
       }
@@ -705,6 +1044,38 @@ ${equipmentData}
 
   return (
     <div className="flex h-screen bg-bg-main text-text-primary font-sans">
+      {notification && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-[400px] px-4 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className={`p-3.5 rounded-lg shadow-2xl border flex items-start space-x-3 backdrop-blur bg-zinc-950/95 text-white ${
+            notification.type === 'success' ? 'border-emerald-500/50 shadow-emerald-950/20' :
+            notification.type === 'error' ? 'border-rose-500/50 shadow-rose-950/20' :
+            notification.type === 'warning' ? 'border-amber-500/50 shadow-amber-950/20' :
+            'border-cyan-500/50 shadow-cyan-950/20'
+          }`}>
+            <div className={`mt-0.5 rounded-full p-1 ${
+              notification.type === 'success' ? 'text-emerald-400 bg-emerald-500/10' :
+              notification.type === 'error' ? 'text-rose-400 bg-rose-500/10' :
+              notification.type === 'warning' ? 'text-amber-400 bg-amber-500/10' :
+              'text-cyan-400 bg-cyan-500/10'
+            }`}>
+              {notification.type === 'success' && <Check className="w-4 h-4" />}
+              {notification.type === 'error' && <X className="w-4 h-4" />}
+              {notification.type === 'warning' && <AlertTriangle className="w-4 h-4" />}
+              {notification.type === 'info' && <Info className="w-4 h-4" />}
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-xs font-semibold text-gray-100 leading-normal whitespace-pre-wrap">{notification.message}</p>
+            </div>
+            <button 
+              onClick={() => setNotification(null)}
+              className="text-gray-400 hover:text-white shrink-0 p-0.5 rounded hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="w-80 bg-bg-panel border-r border-border-color flex flex-col z-10">
         <div className="p-4 border-b border-border-color shrink-0">
           <h1 className="text-xl font-bold text-accent tracking-wide">RF-SIM [VER 1.0.4]</h1>
@@ -735,9 +1106,171 @@ ${equipmentData}
                  <input type="file" className="hidden" accept=".json" onChange={handleLoadTopology} />
                </label>
             </div>
-            <button onClick={loadSampleData} className="w-full py-1.5 bg-gray-800 border border-border-color rounded text-xs text-text-secondary hover:text-white transition-colors flex items-center justify-center">
-              <Search className="w-3 h-3 mr-1" /> Load Sample Data
-            </button>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+               <button onClick={loadSampleData} className="w-full py-1.5 bg-gray-800 border border-border-color rounded text-xs text-text-secondary hover:text-white transition-colors flex items-center justify-center">
+                 <Search className="w-3 h-3 mr-1" /> Sample Data
+               </button>
+               <button onClick={handleExportGeoJSON} className="w-full py-1.5 bg-zinc-800 border border-zinc-700 rounded text-xs text-warning hover:text-yellow-300 transition-colors flex items-center justify-center">
+                 <Download className="w-3 h-3 mr-1" /> GeoJSON Export
+               </button>
+            </div>
+
+            {/* VWorld Browser GIS Search Box */}
+            <div className="border border-border-color rounded-lg p-3 bg-zinc-950/40 space-y-3 mt-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-accent tracking-wider uppercase flex items-center">
+                  <RadioTower className="w-3.5 h-3.5 mr-1.5 animate-pulse" /> VWorld 아파트 검색
+                </span>
+                <span className="text-[9px] text-gray-500 font-mono">GetFeature 2.0</span>
+              </div>
+              
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="text-[10px] text-text-secondary block mb-0.5">VWorld 인증키</label>
+                  <input 
+                    type="password" 
+                    placeholder="인증키가 없을 시 동작하지 않습니다" 
+                    value={vworldKey} 
+                    onChange={e => setVworldKey(e.target.value)} 
+                    className="w-full px-2 py-1 bg-bg-accent border border-border-color rounded font-mono text-[11px] text-white focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-0.5">
+                    <label className="text-[10px] text-text-secondary">VWorld 등록 도메인</label>
+                    <span className="text-[9px] text-[#00e5ff] font-mono select-all">접속도메인: {window.location.origin}</span>
+                  </div>
+                  <input 
+                    type="text" 
+                    placeholder="예: localhost 또는 현재 사이트 주소" 
+                    value={vworldDomain} 
+                    onChange={e => setVworldDomain(e.target.value)} 
+                    className="w-full px-2 py-1 bg-bg-accent border border-border-color rounded font-mono text-[11px] text-white focus:outline-none focus:border-accent"
+                  />
+                  <p className="text-[9px] text-gray-400 mt-1 leading-normal">
+                    💡 브이월드 오픈플랫폼에서 발급받은 인증키의 <strong>등록 도메인</strong> 정보와 완전히 일치해야 합니다. (자세한 주소: <span className="text-gray-300 select-all">{window.location.origin}</span>)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-text-secondary block mb-1">API 호출 방식</label>
+                  <div className="grid grid-cols-2 gap-1 bg-bg-accent p-0.5 rounded border border-border-color">
+                    <button
+                      type="button"
+                      onClick={() => setVworldRequestMode('direct')}
+                      className={`py-1 text-[10px] font-medium rounded transition-all ${vworldRequestMode === 'direct' ? 'bg-[#00e5ff] text-zinc-950 font-semibold shadow-sm' : 'text-text-secondary hover:text-white'}`}
+                    >
+                      직접 호출 (WAF 우회 권장)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVworldRequestMode('proxy')}
+                      className={`py-1 text-[10px] font-medium rounded transition-all ${vworldRequestMode === 'proxy' ? 'bg-[#00e5ff] text-zinc-950 font-semibold shadow-sm' : 'text-text-secondary hover:text-white'}`}
+                    >
+                      서버 프록시 경유
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-gray-400 mt-1 leading-normal">
+                    💡 서버 IP 차단(502 Bad Gateway/Socket Hang Up)을 완벽 극복하려면, <strong>'직접 호출'</strong> 방식을 권장합니다.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div>
+                    <label className="text-[10px] text-text-secondary block mb-0.5">조회 레이어</label>
+                    <select 
+                      value={searchLayer} 
+                      onChange={e => setSearchLayer(e.target.value as any)} 
+                      className="w-full px-1.5 py-1 bg-bg-accent border border-border-color rounded text-[11px] text-white focus:outline-none"
+                    >
+                      <option value="LT_C_SPBD">도로명건물 (SPBD)</option>
+                      <option value="LT_C_BLDINFO">건축물정보 (BLD)</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <label className="flex items-center space-x-1.5 cursor-pointer py-1">
+                      <input 
+                        type="checkbox" 
+                        checked={useNameFilter} 
+                        onChange={e => setUseNameFilter(e.target.checked)} 
+                        className="rounded bg-bg-accent border-border-color text-accent w-3 h-3"
+                      />
+                      <span className="text-[10px] text-text-secondary whitespace-nowrap">단지명 동 필터ing</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="pt-1">
+                  <label className="text-[10px] text-text-secondary block mb-0.5">아파트 단지명 검색</label>
+                  <div className="flex space-x-1">
+                    <input 
+                      type="text" 
+                      placeholder="예: 은마아파트, 반포자이" 
+                      value={searchQuery} 
+                      onChange={e => setSearchQuery(e.target.value)} 
+                      onKeyDown={e => { if (e.key === 'Enter') handleVWorldSearch(); }}
+                      className="flex-1 px-2 py-1 bg-bg-accent border border-border-color rounded text-[11px] text-white focus:outline-none focus:border-accent"
+                    />
+                    <button 
+                      onClick={handleVWorldSearch} 
+                      disabled={searchStatus === 'searching'} 
+                      className="px-2.5 bg-accent text-black rounded text-xs hover:bg-[#00e5ff]/90 transition-colors flex items-center justify-center cursor-pointer"
+                    >
+                      검색
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status and Candidates list */}
+              {searchStatus === 'searching' && (
+                <div className="text-[11px] text-accent flex items-center justify-center py-1 bg-bg-accent/30 rounded">
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> 단지 대표위치 검색 중...
+                </div>
+              )}
+
+              {searchStatus === 'no_result' && (
+                <div className="text-[11px] text-warning text-center py-1 bg-bg-accent/30 rounded">
+                  검색 결과가 없습니다.
+                </div>
+              )}
+
+              {searchStatus === 'error' && (
+                <div className="text-[10px] text-red-400 p-1.5 bg-red-950/20 rounded border border-red-900/30 font-mono break-all leading-tight">
+                  {errorMessage}
+                </div>
+              )}
+
+              {isFetchingPolygons && (
+                <div className="text-[11px] text-warning flex items-center justify-center py-1.5 bg-bg-accent/30 rounded border border-warning/10 animate-pulse">
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> 단지 건물 폴리곤 다운로드 중...
+                </div>
+              )}
+
+              {searchCandidates.length > 0 && searchStatus === 'success' && (
+                <div className="space-y-1.5 pt-1.5 border-t border-zinc-800">
+                  <span className="text-[10px] text-text-secondary font-semibold block mb-1">검색 결과 ({searchCandidates.length}):</span>
+                  <div className="max-h-36 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                    {searchCandidates.map((c, idx) => (
+                      <button 
+                        key={idx} 
+                        onClick={() => handleSelectCandidate(c)}
+                        disabled={isFetchingPolygons}
+                        className="w-full text-left p-1.5 bg-zinc-900 border border-zinc-800 rounded hover:border-accent hover:bg-zinc-800/80 transition-all text-[11px] line-clamp-2 block group cursor-pointer"
+                      >
+                        <div className="font-bold text-white group-hover:text-accent transition-colors truncate">
+                          {stripHtml(c.title)}
+                        </div>
+                        <div className="text-[9px] text-gray-400 truncate">
+                          {c.address?.road || c.address?.parcel || '주소 정보 없음'}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </section>
 
           <section>
