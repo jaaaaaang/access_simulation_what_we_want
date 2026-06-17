@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Square, Minus, Play, RotateCcw, Image as ImageIcon, Terminal, Database, Search, ZoomIn, ZoomOut, RadioTower, Check, Sparkles, Download, Eraser, Save, FolderOpen, X, AlertTriangle, Info } from 'lucide-react';
 import { Point, Line, Polygon, SimulationParams, SimulationResult, Equipment } from './types';
-import { runSimulation, pointInPolygon, snapToPolygonEdge } from './lib/simulation';
+import { runSimulation, pointInPolygon, snapToPolygonEdge, getSecondVerandas } from './lib/simulation';
 import { sampleBuildings, sampleVerandas } from './lib/sampleData';
 // @ts-ignore
 import * as shp from 'shpjs';
@@ -67,7 +67,7 @@ export default function App() {
   const [buildings, setBuildings] = useState<Polygon[]>([]);
   const [verandas, setVerandas] = useState<Line[]>([]);
   const [manualEquipments, setManualEquipments] = useState<Equipment[]>([]);
-  const [mode, setMode] = useState<'idle' | 'building' | 'veranda' | 'equipment' | 'eraser'>('idle');
+  const [mode, setMode] = useState<'idle' | 'building' | 'veranda' | 'second_veranda' | 'equipment' | 'eraser'>('idle');
   
   const [currentPolygon, setCurrentPolygon] = useState<Point[]>([]);
   const [currentLineStart, setCurrentLineStart] = useState<Point | null>(null);
@@ -272,24 +272,37 @@ export default function App() {
         setVerandas([...verandas, { start: currentLineStart, end: p }]);
         setCurrentLineStart(null);
       }
+    } else if (mode === 'second_veranda') {
+      if (!currentLineStart) {
+        setCurrentLineStart(p);
+      } else {
+        setVerandas([...verandas, { start: currentLineStart, end: p, isSecond: true }]);
+        setCurrentLineStart(null);
+      }
     } else if (mode === 'equipment') {
        let bIdx = buildings.findIndex(b => pointInPolygon(p, b));
        let finalP = p;
        if (bIdx >= 0) {
            finalP = snapToPolygonEdge(p, buildings[bIdx]);
        }
-       setManualEquipments([...manualEquipments, {
-           id: `M-${manualEquipments.length + 1}`,
-           x: finalP.x, y: finalP.y, angle: 90,
-           bIdx: bIdx >= 0 ? bIdx : undefined,
-           isManual: true
-       }]);
+       
+       // Unique site counter
+       const uniqueCoords = new Set<string>();
+       manualEquipments.forEach(e => uniqueCoords.add(`${Math.round(e.x)},${Math.round(e.y)}`));
+       const nextSiteIdx = uniqueCoords.size + 1;
+
+       const s1 = { id: `M-${nextSiteIdx}-A`, x: finalP.x, y: finalP.y, angle: 0, bIdx: bIdx >= 0 ? bIdx : undefined, isManual: true };
+       const s2 = { id: `M-${nextSiteIdx}-B`, x: finalP.x, y: finalP.y, angle: 120, bIdx: bIdx >= 0 ? bIdx : undefined, isManual: true };
+       const s3 = { id: `M-${nextSiteIdx}-C`, x: finalP.x, y: finalP.y, angle: 240, bIdx: bIdx >= 0 ? bIdx : undefined, isManual: true };
+
+       setManualEquipments([...manualEquipments, s1, s2, s3]);
        setResult(null);
     } else if (mode === 'eraser') {
-      // Priority 1: Eraser Manual Equipment
+      // Priority 1: Eraser Manual Equipment (remove entire co-located site)
       const eqIdx = manualEquipments.findIndex(eq => Math.sqrt((eq.x - p.x)**2 + (eq.y - p.y)**2) < 10);
       if (eqIdx >= 0) {
-        setManualEquipments(manualEquipments.filter((_, i) => i !== eqIdx));
+        const target = manualEquipments[eqIdx];
+        setManualEquipments(manualEquipments.filter(e => Math.sqrt((e.x - target.x)**2 + (e.y - target.y)**2) >= 2));
         setResult(null);
         return;
       }
@@ -320,7 +333,7 @@ export default function App() {
       setCurrentPolygon([]);
     } else if (mode === 'building') {
       setCurrentPolygon([]);
-    } else if (mode === 'veranda') {
+    } else if (mode === 'veranda' || mode === 'second_veranda') {
       setCurrentLineStart(null);
     }
   };
@@ -772,13 +785,36 @@ export default function App() {
   };
 
   const updateEqAngle = (id: string, newAngle: number) => {
+      const target = manualEquipments.find(eq => eq.id === id);
+      if (!target) return;
+      
+      const coLocated = manualEquipments.filter(eq => eq.id !== id && Math.sqrt((eq.x - target.x)**2 + (eq.y - target.y)**2) < 2);
+      
+      let isValidChange = true;
+      for (const other of coLocated) {
+          let diff = Math.abs(other.angle - newAngle);
+          diff = diff > 180 ? 360 - diff : diff;
+          if (diff < 80) {
+              isValidChange = false;
+              break;
+          }
+      }
+      
+      if (!isValidChange) {
+          showAppNotification("동일 위치 장비 간의 각도 이격 거리는 최소 80도 이상이어야 합니다. (중복/간섭 방지)", "warning");
+          return;
+      }
+      
       setManualEquipments(manualEquipments.map(eq => eq.id === id ? { ...eq, angle: newAngle } : eq));
       setResult(null);
       setAiInsights(null);
   };
 
   const deleteEq = (id: string) => {
-      setManualEquipments(manualEquipments.filter(eq => eq.id !== id));
+      const target = manualEquipments.find(eq => eq.id === id);
+      if (target) {
+          setManualEquipments(manualEquipments.filter(eq => Math.sqrt((eq.x - target.x)**2 + (eq.y - target.y)**2) >= 2));
+      }
       setResult(null);
       setAiInsights(null);
   };
@@ -843,17 +879,29 @@ export default function App() {
               cx /= poly.length;
               cy /= poly.length;
 
-              ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
               ctx.beginPath();
-              // A simple background box for text
-              ctx.roundRect(cx - 24, cy - 12, 48, 24, 4);
+              
+              const hasBonus = bCov.secondCovered && bCov.secondCovered > 0;
+              const boxWidth = hasBonus ? 84 : 48;
+              const boxHeight = hasBonus ? 32 : 22;
+              
+              ctx.roundRect(cx - (boxWidth / 2), cy - (boxHeight / 2), boxWidth, boxHeight, 5);
               ctx.fill();
 
               ctx.fillStyle = bCov.ratio >= 90 ? '#00e676' : bCov.ratio >= 50 ? '#ffb300' : '#ff5252';
-              ctx.font = 'bold 12px Inter';
+              ctx.font = 'bold 11px Inter';
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.fillText(`${Math.round(bCov.ratio)}%`, cx, cy);
+              
+              if (hasBonus) {
+                  ctx.fillText(`${Math.round(bCov.ratio)}%`, cx, cy - 6);
+                  ctx.fillStyle = '#29b6f6';
+                  ctx.font = 'bold 9px Inter';
+                  ctx.fillText(`+${bCov.secondCovered}m 보너스`, cx, cy + 7);
+              } else {
+                  ctx.fillText(`${Math.round(bCov.ratio)}%`, cx, cy);
+              }
           }
       }
     });
@@ -874,171 +922,167 @@ export default function App() {
       ctx.setLineDash([]);
     }
 
+    // Draw Second Verandas (long building walls, dashed blue-cyan)
+    const secondVerandas = getSecondVerandas(buildings);
+    secondVerandas.forEach(line => {
+      ctx.beginPath();
+      ctx.moveTo(line.start.x, line.start.y);
+      ctx.lineTo(line.end.x, line.end.y);
+      ctx.strokeStyle = '#29b6f6'; 
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.setLineDash([5, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+
     verandas.forEach(line => {
       ctx.beginPath();
       ctx.moveTo(line.start.x, line.start.y);
       ctx.lineTo(line.end.x, line.end.y);
-      ctx.strokeStyle = '#ffb300';
-      ctx.lineWidth = 5;
-      ctx.lineCap = 'round';
-      ctx.stroke();
+      if (line.isSecond) {
+        ctx.strokeStyle = '#29b6f6';
+        ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else {
+        ctx.strokeStyle = '#ffb300';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
     });
 
     if (currentLineStart && mousePos) {
       ctx.beginPath();
       ctx.moveTo(currentLineStart.x, currentLineStart.y);
       ctx.lineTo(mousePos.x, mousePos.y);
-      ctx.strokeStyle = '#ffb300';
-      ctx.lineWidth = 5;
-      ctx.lineCap = 'round';
-      ctx.setLineDash([8, 8]);
+      if (mode === 'second_veranda') {
+        ctx.strokeStyle = '#29b6f6';
+        ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else {
+        ctx.strokeStyle = '#ffb300';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.setLineDash([8, 8]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    const activeEquipments = result ? result.equipments : manualEquipments;
+    const isSimulated = !!result;
+
+    // 1. Draw Sector Beams first
+    activeEquipments.forEach((eq) => {
+      const angleRad = (eq.angle - 90) * Math.PI / 180;
+      const beamHalfConf = (params.beamWidth / 2) * Math.PI / 180;
+      const mainStart = angleRad - beamHalfConf;
+      const mainEnd = angleRad + beamHalfConf;
+      const radius = params.maxRange * params.pixelsPerMeter * 0.4; // 40% size visual beam
+
+      ctx.beginPath();
+      ctx.moveTo(eq.x, eq.y);
+      ctx.arc(eq.x, eq.y, radius, mainStart, mainEnd);
+      ctx.closePath();
+      ctx.fillStyle = isSimulated ? 'rgba(0, 229, 255, 0.14)' : 'rgba(255, 179, 0, 0.14)';
+      ctx.fill();
+      ctx.strokeStyle = isSimulated ? 'rgba(0, 229, 255, 0.35)' : 'rgba(255, 179, 0, 0.35)';
+      ctx.lineWidth = 1.2;
       ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    // Draw manual equipments not yet simulated
-    if (!result) {
-      manualEquipments.forEach((eq) => {
-        const angleRad = (eq.angle - 90) * Math.PI / 180;
-        const beamHalfConf = (params.beamWidth / 2) * Math.PI / 180;
-        const mainStart = angleRad - beamHalfConf;
-        const mainEnd = angleRad + beamHalfConf;
-        const leakLeftStart = angleRad - beamHalfConf - (15 * Math.PI / 180);
-        const leakRightEnd = angleRad + beamHalfConf + (15 * Math.PI / 180);
-        const radius = params.maxRange * params.pixelsPerMeter * 0.4; // Preview beam
-
-        // Left leakage
-        ctx.beginPath();
-        ctx.moveTo(eq.x, eq.y);
-        ctx.arc(eq.x, eq.y, radius, leakLeftStart, mainStart);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(255, 235, 59, 0.2)'; // Yellow
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 235, 59, 0.5)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // Right leakage
-        ctx.beginPath();
-        ctx.moveTo(eq.x, eq.y);
-        ctx.arc(eq.x, eq.y, radius, mainEnd, leakRightEnd);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(255, 235, 59, 0.2)';
-        ctx.fill();
-        ctx.stroke();
-
-        // Main beam
-        ctx.beginPath();
-        ctx.moveTo(eq.x, eq.y);
-        ctx.arc(eq.x, eq.y, radius, mainStart, mainEnd);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(255, 179, 0, 0.2)'; // amber for manual preview
-        ctx.fill();
-        ctx.strokeStyle = '#000000'; // Black edge
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // We also want to align multiple manual nodes horizontally if overlapped, but it's preview. Let's just draw the node larger.
-        ctx.beginPath();
-        ctx.arc(eq.x, eq.y, 8, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffb300';
-        ctx.fill();
-        
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 12px Inter';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(eq.id.split('-')[1], eq.x, eq.y);
-      });
-    }
+    });
 
     if (result) {
-      // Draw connection lines (beams)
+      // 2. Draw Connection Lines (faint beam stream lines)
       result.equipments.forEach((eq) => {
         if (eq.coveredPoints && eq.coveredPoints.length > 0) {
           ctx.beginPath();
           eq.coveredPoints.forEach(p => {
-            ctx.moveTo(eq.x, eq.y);
-            ctx.lineTo(p.x, p.y);
+             ctx.moveTo(eq.x, eq.y);
+             ctx.lineTo(p.x, p.y);
           });
-          ctx.strokeStyle = 'rgba(0, 229, 255, 0.25)'; // faint cyan beam
-          ctx.lineWidth = 1;
+          ctx.strokeStyle = 'rgba(0, 229, 255, 0.28)'; // visible faint cyan stream line
+          ctx.lineWidth = 0.8;
           ctx.stroke();
         }
       });
 
+      // 3. Draw standard (1st) veranda covered points (Green)
       ctx.fillStyle = '#00e676';
       result.coveredSamples.forEach(p => {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
         ctx.fill();
       });
 
-      const drawnNodes = new Map<string, number>();
-
-      result.equipments.forEach((eq, index) => {
-        // Adjust angle so 0 deg is North (Up - 12 o'clock)
-        const angleRad = (eq.angle - 90) * Math.PI / 180;
-        const beamHalfConf = (params.beamWidth / 2) * Math.PI / 180;
-        const mainStart = angleRad - beamHalfConf;
-        const mainEnd = angleRad + beamHalfConf;
-        const leakLeftStart = angleRad - beamHalfConf - (15 * Math.PI / 180);
-        const leakRightEnd = angleRad + beamHalfConf + (15 * Math.PI / 180);
-        const radius = params.maxRange * params.pixelsPerMeter;
-
-        // Left leakage (Yellow)
-        ctx.beginPath();
-        ctx.moveTo(eq.x, eq.y);
-        ctx.arc(eq.x, eq.y, radius, leakLeftStart, mainStart);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(255, 235, 59, 0.2)';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 235, 59, 0.6)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // Right leakage (Yellow)
-        ctx.beginPath();
-        ctx.moveTo(eq.x, eq.y);
-        ctx.arc(eq.x, eq.y, radius, mainEnd, leakRightEnd);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(255, 235, 59, 0.2)';
-        ctx.fill();
-        ctx.stroke();
-
-        // Main beam (Cyan)
-        ctx.beginPath();
-        ctx.moveTo(eq.x, eq.y);
-        ctx.arc(eq.x, eq.y, radius, mainStart, mainEnd);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(0, 229, 255, 0.2)';
-        ctx.fill();
-        ctx.strokeStyle = '#000000'; // Change to black line for visibility
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        const key = `${Math.round(eq.x)},${Math.round(eq.y)}`;
-        const offsetCount = drawnNodes.get(key) || 0;
-        drawnNodes.set(key, offsetCount + 1);
-
-        // Offset label horizontally side-by-side if multiple nodes share the same pole
-        const xOffset = eq.x + (offsetCount * 18); // 18px horizontal padding between labels
-        
-        ctx.beginPath();
-        ctx.arc(xOffset, eq.y, 8, 0, Math.PI * 2); // Larger circle
-        ctx.fillStyle = '#fff';
-        ctx.fill();
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 12px Inter'; // Larger 마킹
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(eq.id.replace('AUTO-', '').replace('M-', ''), xOffset, eq.y);
-      });
+      // 4. Draw Second veranda covered points (Cyan / Skyblue - 표시만)
+      if (result.secondCoveredSamples) {
+        ctx.fillStyle = '#29b6f6';
+        result.secondCoveredSamples.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
     }
+
+    // 5. Draw Bracket Arms & Sector Icons
+    activeEquipments.forEach((eq) => {
+      const angleRad = (eq.angle - 90) * Math.PI / 180;
+      const offsetDist = 18; // Offset 18px towards steering angle
+      const iconX = eq.x + Math.cos(angleRad) * offsetDist;
+      const iconY = eq.y + Math.sin(angleRad) * offsetDist;
+
+      // Draw sturdy bracket arm
+      ctx.beginPath();
+      ctx.moveTo(eq.x, eq.y);
+      ctx.lineTo(iconX, iconY);
+      ctx.strokeStyle = '#27272a'; // dark zinc sturdy line
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+
+      // Draw sector circle
+      ctx.beginPath();
+      ctx.arc(iconX, iconY, 11, 0, Math.PI * 2); // 11px radius (highly legible)
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.strokeStyle = isSimulated ? '#0288d1' : '#f57c00'; // Darker theme border
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+
+      // Sector Shortened Label (such as 1-A, 2-C, etc.)
+      ctx.fillStyle = '#09090b';
+      ctx.font = 'bold 9px Inter';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const labelText = eq.id.replace('AUTO-', '').replace('M-', '');
+      ctx.fillText(labelText, iconX, iconY);
+    });
+
+    // 6. Draw central masts/holding poles (Tower base dots)
+    const uniquePoles = new Map<string, Point>();
+    activeEquipments.forEach((eq) => {
+      const key = `${Math.round(eq.x)},${Math.round(eq.y)}`;
+      if (!uniquePoles.has(key)) {
+        uniquePoles.set(key, { x: eq.x, y: eq.y });
+      }
+    });
+
+    uniquePoles.forEach((pos) => {
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#18181b';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    });
 
   }, [imageSrc, buildings, verandas, currentPolygon, currentLineStart, mousePos, result, params, manualEquipments]);
 
@@ -1278,41 +1322,68 @@ export default function App() {
             <div className="grid grid-cols-3 gap-2">
               <button 
                 onClick={() => setMode('building')}
-                className={`flex flex-col items-center p-3 rounded border ${mode === 'building' ? 'bg-bg-accent border-accent text-accent' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
+                className={`flex flex-col items-center p-2 rounded border ${mode === 'building' ? 'bg-bg-accent border-accent text-accent' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
               >
-                <Square className="w-5 h-5 mb-1" />
-                <span className="text-[10px] font-medium">Building</span>
+                <Square className="w-4.5 h-4.5 mb-1" />
+                <span className="text-[10px] font-medium text-center leading-tight">Building</span>
               </button>
               <button 
                 onClick={() => setMode('veranda')}
-                className={`flex flex-col items-center p-3 rounded border ${mode === 'veranda' ? 'bg-bg-accent border-warning text-warning' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
+                className={`flex flex-col items-center p-2 rounded border ${mode === 'veranda' ? 'bg-bg-accent border-warning text-warning' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
               >
-                <Minus className="w-5 h-5 mb-1" />
-                <span className="text-[10px] font-medium">Veranda</span>
+                <Minus className="w-4.5 h-4.5 mb-1" />
+                <span className="text-[10px] font-medium text-center leading-tight">1st 베란다</span>
+              </button>
+              <button 
+                onClick={() => setMode('second_veranda')}
+                className={`flex flex-col items-center p-2 rounded border ${mode === 'second_veranda' ? 'bg-bg-accent border-[#29b6f6] text-[#29b6f6]' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
+              >
+                <Minus className="w-4.5 h-4.5 mb-1 rotate-45" />
+                <span className="text-[10px] font-medium text-center leading-tight">2nd 베란다</span>
               </button>
               <button 
                 onClick={() => setMode('eraser')}
-                className={`flex flex-col items-center p-3 rounded border ${mode === 'eraser' ? 'bg-bg-accent border-error text-error' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
+                className={`flex flex-col items-center p-2 rounded border ${mode === 'eraser' ? 'bg-bg-accent border-error text-error' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
               >
-                <Eraser className="w-5 h-5 mb-1" />
-                <span className="text-[10px] font-medium">Eraser</span>
+                <Eraser className="w-4.5 h-4.5 mb-1" />
+                <span className="text-[10px] font-medium text-center leading-tight">Eraser</span>
               </button>
               <button 
                 onClick={() => setMode('equipment')}
-                className={`flex flex-col items-center p-3 rounded border ${mode === 'equipment' ? 'bg-bg-accent border-[#ffb300] text-[#ffb300]' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'} col-span-3`}
+                className={`flex flex-col items-center p-2 rounded border ${mode === 'equipment' ? 'bg-bg-accent border-[#ffb300] text-[#ffb300]' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'} col-span-2`}
               >
-                <RadioTower className="w-5 h-5 mb-1" />
-                <span className="text-xs font-medium">Place Manual Node</span>
+                <RadioTower className="w-4.5 h-4.5 mb-1" />
+                <span className="text-[10px] font-medium text-center leading-tight">Place Site</span>
               </button>
             </div>
             <p className="text-xs text-text-secondary mt-2">
               {mode === 'building' && "Click to add points. Right-click to finish polygon."}
-              {mode === 'veranda' && "Click start and end points to draw a line."}
-              {mode === 'equipment' && "Click anywhere to place a custom node."}
-              {mode === 'eraser' && "Click on a building, veranda, or node to remove it."}
+              {mode === 'veranda' && "Click start and end points to draw a standard (1등급) veranda."}
+              {mode === 'second_veranda' && "Click start and end points to draw a second (2등급, 70% 가중치) veranda."}
+              {mode === 'equipment' && "Click on the map/building edges to place a co-located 3-sector site."}
+              {mode === 'eraser' && "Click on a building, veranda, or site to remove it."}
               {mode === 'idle' && "Select a tool to start drawing."}
             </p>
-            <button onClick={clearDrawing} className="mt-2 text-xs text-text-secondary hover:text-text-primary flex items-center">
+            
+            <div className="mt-3.5 pt-2 border-t border-zinc-800 space-y-1.5 text-[10px]">
+              <div className="flex items-center justify-between text-text-secondary mb-1">
+                <span className="font-semibold uppercase tracking-wider text-[9px]">Simulation Targets</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="w-4 h-1.5 bg-[#ffb300] rounded"></span>
+                <span className="text-gray-300">베란다 (Primary : 100% 점수)</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="w-4 h-1 border-t-2 border-dashed border-[#29b6f6]"></span>
+                <span className="text-gray-300">Second 베란다 (긴 벽면 : 70% 점수)</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full"></span>
+                <span className="text-zinc-500">짧은 측면 벽 (콘크리트 : 노카운트)</span>
+              </div>
+            </div>
+
+            <button onClick={clearDrawing} className="mt-3 text-xs text-text-secondary hover:text-text-primary flex items-center">
               <RotateCcw className="w-3 h-3 mr-1" /> Clear All Drawings
             </button>
           </section>
@@ -1387,14 +1458,23 @@ export default function App() {
             <div className="space-y-4">
               <div className="p-3 bg-bg-accent border-l-4 border-accent rounded">
                 <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-[1.5px] mb-2">Results</h3>
-                <div className="flex justify-between text-sm mb-1">
+                <div className="flex justify-between text-sm mb-1 pb-0.5">
                   <span className="text-text-secondary text-xs uppercase">Equipments:</span>
                   <span className="font-bold text-white font-mono text-lg">{result.equipments.length.toString().padStart(2, '0')}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-text-secondary text-xs uppercase">Coverage:</span>
+                <div className="flex justify-between text-sm mb-1.5">
+                  <span className="text-text-secondary text-xs uppercase">1st 베란다 커버리지 (모수):</span>
                   <span className="font-bold text-success font-mono text-lg">{result.coverageRatio.toFixed(1)}%</span>
                 </div>
+                {result.secondCoveredSamples && result.secondCoveredSamples.length > 0 && (
+                  <div className="flex justify-between text-sm border-t border-zinc-800 pt-1.5 mt-1">
+                    <span className="text-zinc-400 text-[11px] uppercase flex items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#29b6f6] mr-1.5 inline-block animate-pulse"></span>
+                      2nd 베란다 전파 투영 보너스:
+                    </span>
+                    <span className="font-bold text-[#29b6f6] font-mono text-xs">+{result.secondCoveredSamples.length}m</span>
+                  </div>
+                )}
               </div>
 
               <div className="bg-bg-accent rounded border border-border-color overflow-hidden flex flex-col">

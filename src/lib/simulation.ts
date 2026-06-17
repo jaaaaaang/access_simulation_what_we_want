@@ -60,6 +60,75 @@ export function snapToPolygonEdge(p: Point, poly: Polygon): Point {
     return closestPoint;
 }
 
+// Extract the long face walls of standard polygon buildings and treat them as Second Verandas (70% score)
+export function getSecondVerandas(buildings: Polygon[]): Line[] {
+    const secondLines: Line[] = [];
+    buildings.forEach((poly, bIdx) => {
+        const N = poly.length;
+        if (N < 3) return;
+        
+        // Calculate all edge lengths
+        const edgeLengths: number[] = [];
+        for (let i = 0; i < N; i++) {
+            edgeLengths.push(distance(poly[i], poly[(i + 1) % N]));
+        }
+        
+        // Calculate average edge length of this specific building
+        const avgLength = edgeLengths.reduce((a, b) => a + b, 0) / N;
+        
+        // Any edge with length >= avgLength is classified as a "long face wall" meaning a Second Veranda
+        for (let i = 0; i < N; i++) {
+            if (edgeLengths[i] >= avgLength) {
+                const start = poly[i];
+                const end = poly[(i + 1) % N];
+                
+                // Normal vector computation
+                const dx = end.x - start.x;
+                const dy = end.y - start.y;
+                let nx = -dy;
+                let ny = dx;
+                const len = Math.sqrt(nx*nx + ny*ny);
+                if (len > 0) {
+                    nx /= len;
+                    ny /= len;
+                }
+                
+                // Determine outward normal (away from building interior)
+                const midPoint = { x: (start.x + end.x)/2, y: (start.y + end.y)/2 };
+                let isInside1 = false;
+                let isInside2 = false;
+                for(let ep = 1; ep <= 10; ep += 2) {
+                    if (pointInPolygon({ x: midPoint.x + nx * ep, y: midPoint.y + ny * ep }, poly)) isInside1 = true;
+                    if (pointInPolygon({ x: midPoint.x - nx * ep, y: midPoint.y - ny * ep }, poly)) isInside2 = true;
+                    if (isInside1 !== isInside2) break; 
+                }
+                if (isInside1 && !isInside2) {
+                    nx = -nx; ny = -ny;
+                } else if (isInside2 && !isInside1) {
+                    // correct
+                } else {
+                    let cx = 0, cy = 0;
+                    poly.forEach(p => { cx += p.x; cy += p.y; });
+                    cx /= poly.length;
+                    cy /= poly.length;
+                    if (nx * (midPoint.x - cx) + ny * (midPoint.y - cy) < 0) {
+                        nx = -nx; ny = -ny;
+                    }
+                }
+                
+                secondLines.push({
+                    start,
+                    end,
+                    bIdx,
+                    normal: { x: nx, y: ny },
+                    isSecond: true
+                });
+            }
+        }
+    });
+    return secondLines;
+}
+
 export function evaluateRay(
     point: { x: number; y: number; bIdx?: number },
     angle: number,
@@ -106,6 +175,9 @@ export function evaluateRay(
             
             let hit = false;
             for (let bIdx = 0; bIdx < buildings.length; bIdx++) {
+                if (point.bIdx !== undefined && bIdx === point.bIdx) {
+                    continue; // Skip own building: transmitter on the roof is not blocked by itself
+                }
                 if (pointInPolygon(p, buildings[bIdx])) {
                     hit = true;
                     break;
@@ -128,7 +200,10 @@ export function evaluateRay(
     
     if (cos_phi <= 0) return 0;
     
-    return cos_phi * f_d * angular_loss;
+    const score = cos_phi * f_d * angular_loss;
+    
+    // Applying Second Veranda penalty (-30% score / weight rating)
+    return sample.line.isSecond ? score * 0.7 : score;
 }
 
 export function runSimulation(
@@ -140,6 +215,7 @@ export function runSimulation(
     const candidatePoints: (Point & {bIdx: number})[] = [];
     const step = 10; 
     
+    // 1. Generate site candidate location points along building boundaries
     buildings.forEach((poly, bIdx) => {
         for (let i = 0; i < poly.length; i++) {
             const p1 = poly[i];
@@ -157,6 +233,7 @@ export function runSimulation(
         }
     });
 
+    // Solve standard verandas and map their outward normal vectors
     verandas.forEach((line) => {
         let minD = Infinity;
         let bestBIdx = -1;
@@ -170,6 +247,7 @@ export function runSimulation(
            }
         });
         line.bIdx = bestBIdx;
+        line.isSecond = false;
 
         const dx = line.end.x - line.start.x;
         const dy = line.end.y - line.start.y;
@@ -207,9 +285,15 @@ export function runSimulation(
         line.normal = { x: nx, y: ny };
     });
 
+    // Extract second verandas (representing long sides of concrete buildings)
+    const secondVerandas = getSecondVerandas(buildings);
+
     type Sample = Point & { line: Line, covered: boolean };
     const samples: Sample[] = [];
+    const secondSamples: Sample[] = [];
     const sampleStep = (params.pixelsPerMeter * 1) || 5; // 1 point = 1 meter of veranda
+    
+    // Populate standard veranda samples
     verandas.forEach(line => {
         const len = distance(line.start, line.end);
         const steps = Math.ceil(len / sampleStep);
@@ -224,14 +308,32 @@ export function runSimulation(
         }
     });
 
+    // Populate second veranda (building long sides) samples for bonus rating ONLY (not in target denominator)
+    secondVerandas.forEach(line => {
+        const len = distance(line.start, line.end);
+        const steps = Math.ceil(len / sampleStep);
+        for (let i = 0; i <= steps; i++) {
+            const t = steps === 0 ? 0 : i / steps;
+            secondSamples.push({
+                x: line.start.x + (line.end.x - line.start.x) * t,
+                y: line.start.y + (line.end.y - line.start.y) * t,
+                line,
+                covered: false
+            });
+        }
+    });
+
     if (samples.length === 0) {
         return { equipments: [], coverageRatio: 0, coveredSamples: [], logs: [] };
     }
 
+    const getWeight = (s: Sample) => (s.line.isSecond ? 0.7 : 1.0);
+
     const equipments: Equipment[] = [];
     const logs: LogEntry[] = [];
-    const targetCoveredCount = samples.length * (params.targetCoverage / 100);
-    let currentCoveredCount = 0;
+    const totalWeightSum = samples.reduce((sum, s) => sum + getWeight(s), 0);
+    const targetCoveredScore = totalWeightSum * (params.targetCoverage / 100);
+    let currentCoveredScore = 0;
     const establishedNodes = new Map<number, Point>();
 
     // Phase 1: Evaluate pre-placed / manual equipments
@@ -252,7 +354,7 @@ export function runSimulation(
         const newEq = { ...eq, coveredPoints: [] as Point[] };
         for (const s of selectedSamples) {
             samples[s.idx].covered = true;
-            currentCoveredCount++;
+            currentCoveredScore += getWeight(samples[s.idx]);
             newEq.coveredPoints.push({x: samples[s.idx].x, y: samples[s.idx].y});
         }
         equipments.push(newEq);
@@ -263,175 +365,246 @@ export function runSimulation(
         logs.push({
             id: newEq.id,
             x: Math.round(newEq.x), y: Math.round(newEq.y), angle: Math.round(newEq.angle),
-            score: 0, coveredCount: selectedSamples.length, // Manual implies custom score mapping not needed for placement
+            score: 0, coveredCount: selectedSamples.length, 
             message: `[MANUAL] Node ${newEq.id} placed ${newEq.bIdx !== undefined ? `on Building #${newEq.bIdx + 1}` : 'on Map'} at (${Math.round(newEq.x)}, ${Math.round(newEq.y)}) facing ${Math.round(newEq.angle)}°. Secured ${selectedSamples.length} meters of coverage.`
         });
     }
 
-    let maxIterations = 50; 
+    let maxIterations = 40; 
+    const uniqueManualCoords = new Set<string>();
+    initialEquipments.forEach(eq => uniqueManualCoords.add(`${Math.round(eq.x)},${Math.round(eq.y)}`));
+    let nextSiteIdx = uniqueManualCoords.size + 1;
     
-    // Phase 2: Greedy Optimizer (only runs if targetCoverage > current)
-    while (currentCoveredCount < targetCoveredCount && maxIterations > 0 && candidatePoints.length > 0) {
+    // Phase 2: Tri-Sector Site Greedy Optimizer (3분기 고정 배치)
+    while (currentCoveredScore < targetCoveredScore && maxIterations > 0 && candidatePoints.length > 0) {
         maxIterations--;
-        let bestCandidate: Equipment | null = null;
-        let bestScore = -1;
-        let bestCoveredIndices: number[] = [];
+        let bestSitePoint: (Point & { bIdx: number }) | null = null;
+        let bestSiteAngles: number[] = [0, 120, 240];
+        let bestSiteScore = -1;
+        let bestSiteCoveredIndices: number[] = [];
 
         for (const point of candidatePoints) {
-            // "Strict 1 Pole" logic updated per user request:
-            // "What if we place them on the exact same pole even if they are evaluating for different buildings?"
-            // To achieve "Global Pole Minimization", if 'strictCoLocation' is true, 
-            // we force the simulation to ONLY pick points that exactly match an ALREADY established pole anywhere globally,
-            // OR if no poles exist for a building, picking a new one. 
-            // Actually, an even better approach: If strictCoLocation is on, we snap 'point' to an established pole 
-            // if it is reasonably close geographically, or we just rely on the existing 'establishedNodes' logic
-            // but extend it. Let's loosen the `establishedNodes.has(point.bIdx)` restriction to encourage reusing ANY existing pole.
-            
             let isAllowed = true;
             if (params.strictCoLocation) {
-                // Check if this building already has a pole
                 if (establishedNodes.has(point.bIdx)) {
                     const established = establishedNodes.get(point.bIdx)!;
-                    // Must be EXACTLY on that established pole
                     if (Math.abs(point.x - established.x) > 1 || Math.abs(point.y - established.y) > 1) {
                          isAllowed = false;
                     }
-                } else {
-                    // This building doesn't have a pole yet.
-                    // Are we allowed to use ANOTHER building's pole? YES.
-                    // But if we evaluate a new candidate point, we let it pass.
-                    // To maximize colocation across buildings, we will boost the score of existing poles globally later.
                 }
             }
             if (!isAllowed) continue;
 
-            let bestAngleScore = -1;
-            let bestAngle = 0;
-            let bestAngleCoveredIndices: number[] = [];
-            const omniCoveredIndices = new Set<number>();
+            // 1. Gather all standard veranda samples not yet covered and not on the current transmitting building
+            const activeSampleIndices: number[] = [];
+            for (let i = 0; i < samples.length; i++) {
+                if (samples[i].covered) continue;
+                if (point.bIdx !== undefined && point.bIdx === samples[i].line.bIdx) continue;
+                activeSampleIndices.push(i);
+            }
 
-            // Find existing angles on this exact pole to prevent overlapping sectors
-            const existingAngles: number[] = [];
-            for (const eq of equipments) {
-                if (Math.abs(eq.x - point.x) < 2 && Math.abs(eq.y - point.y) < 2) {
-                    existingAngles.push(eq.angle);
+            if (activeSampleIndices.length === 0) continue;
+
+            const numActive = activeSampleIndices.length;
+            
+            // 2. Precompute the raw ray score of each sector direction (from 0 to 350 deg, in steps of 10)
+            // for all active samples
+            const scoreMatrix = new Float32Array(36 * numActive);
+            const angleScores = new Float32Array(36);
+
+            for (let aIdx = 0; aIdx < 36; aIdx++) {
+                const angle = aIdx * 10;
+                let activeAngleScore = 0;
+                for (let s = 0; s < numActive; s++) {
+                    const globalIdx = activeSampleIndices[s];
+                    const rayScore = evaluateRay(point, angle, samples[globalIdx], params, buildings);
+                    if (rayScore > 0.05) {
+                        const weightedScore = rayScore * getWeight(samples[globalIdx]);
+                        scoreMatrix[aIdx * numActive + s] = weightedScore;
+                        activeAngleScore += weightedScore;
+                    }
+                }
+                angleScores[aIdx] = activeAngleScore;
+            }
+
+            // 3. Find the combination of 3 sectors spaced >= 80 degrees with maximum joint coverage
+            let maxJointScore = -1;
+            let best3Angles: number[] = [0, 120, 240];
+
+            for (let i = 0; i < 36; i++) {
+                if (angleScores[i] === 0) continue; // Skip inactive directions to save calculations
+
+                for (let j = i + 1; j < 36; j++) {
+                    let diffAB = Math.abs((i - j) * 10);
+                    diffAB = diffAB > 180 ? 360 - diffAB : diffAB;
+                    if (diffAB < 80) continue;
+
+                    for (let k = j + 1; k < 36; k++) {
+                        let diffBC = Math.abs((j - k) * 10);
+                        diffBC = diffBC > 180 ? 360 - diffBC : diffBC;
+                        if (diffBC < 80) continue;
+
+                        let diffCA = Math.abs((k - i) * 10);
+                        diffCA = diffCA > 180 ? 360 - diffCA : diffCA;
+                        if (diffCA < 80) continue;
+
+                        // Joint coverage: sum of maximum weighted score across the 3 sectors for each active sample
+                        let jointScore = 0;
+                        for (let s = 0; s < numActive; s++) {
+                            const valA = scoreMatrix[i * numActive + s];
+                            const valB = scoreMatrix[j * numActive + s];
+                            const valC = scoreMatrix[k * numActive + s];
+                            
+                            const maxVal = valA > valB ? (valA > valC ? valA : valC) : (valB > valC ? valB : valC);
+                            jointScore += maxVal;
+                        }
+
+                        // Colocation booster
+                        let multiplier = 1.0;
+                        if (params.strictCoLocation) {
+                            for (const eq of equipments) {
+                                 if (Math.sqrt((eq.x - point.x)**2 + (eq.y - point.y)**2) < 2) {
+                                     multiplier = 1.30; 
+                                     break;
+                                 }
+                            }
+                        }
+                        const finalJointScore = jointScore * multiplier;
+
+                        if (finalJointScore > maxJointScore) {
+                            maxJointScore = finalJointScore;
+                            best3Angles = [i * 10, j * 10, k * 10];
+                        }
+                    }
                 }
             }
 
-            for (let angle = 0; angle < 360; angle += 10) {
-                // Skip angles that are too close to existing equipments on the same pole
-                let isOverlap = false;
-                for (const ea of existingAngles) {
-                    let diff = Math.abs(ea - angle);
-                    diff = diff > 180 ? 360 - diff : diff;
-                    if (diff < Math.max(params.beamWidth * 0.7, 30)) { // Require angular separation
-                        isOverlap = true;
-                        break;
-                    }
-                }
-                if (isOverlap) continue;
-
-                const scoredSamples: {idx: number, score: number}[] = [];
-
-                for (let i = 0; i < samples.length; i++) {
-                    if (samples[i].covered) continue;
-                    if (point.bIdx !== undefined && point.bIdx === samples[i].line.bIdx) continue;
-                    
-                    const score = evaluateRay(point, angle, samples[i], params, buildings);
-                    if (score > 0.05) {
-                        scoredSamples.push({idx: i, score});
-                        omniCoveredIndices.add(i);
-                    }
-                }
+            if (maxJointScore > bestSiteScore && maxJointScore > 0) {
+                bestSiteScore = maxJointScore;
+                bestSitePoint = point;
+                bestSiteAngles = best3Angles;
                 
-                scoredSamples.sort((a, b) => b.score - a.score);
-                const selectedSamples = scoredSamples;
-                let score = selectedSamples.reduce((sum, s) => sum + s.score, 0);
+                // Collect covered global samples for the best selected angle combination
+                const aIdx0 = best3Angles[0] / 10;
+                const aIdx1 = best3Angles[1] / 10;
+                const aIdx2 = best3Angles[2] / 10;
 
-                // --- SCORE BOOST FOR CROSS-BUILDING COLOCATION ---
-                // If this point is ON an already established pole globally, give it a 30% score multiplier.
-                // This forces algorithm to heavily prefer placing 2nd/3rd sectors on an existing pole 
-                // targeting OTHER buildings, instead of spawning a new pole.
-                if (params.strictCoLocation) {
-                    for (const eq of equipments) {
-                         if (Math.abs(eq.x - point.x) < 2 && Math.abs(eq.y - point.y) < 2) {
-                             score *= 1.30; 
-                             break;
-                         }
+                bestSiteCoveredIndices = [];
+                for (let s = 0; s < numActive; s++) {
+                    if (scoreMatrix[aIdx0 * numActive + s] > 0 || 
+                        scoreMatrix[aIdx1 * numActive + s] > 0 || 
+                        scoreMatrix[aIdx2 * numActive + s] > 0) {
+                        bestSiteCoveredIndices.push(activeSampleIndices[s]);
                     }
                 }
-
-                if (score > bestAngleScore) {
-                    bestAngleScore = score;
-                    bestAngle = angle;
-                    bestAngleCoveredIndices = selectedSamples.map(s => s.idx);
-                }
-            }
-
-            // Heuristic for strict co-location: strongly favor pole locations that have a high total 360-degree visibility
-            // This prevents the "Greedy Trap" where a corner is picked for 1 extra point, sacrificing multi-sector potential.
-            let finalScore = bestAngleScore;
-            // Only apply omni bonus if it's a NEW pole being established
-            if (params.strictCoLocation && point.bIdx !== undefined && !establishedNodes.has(point.bIdx)) {
-                finalScore += (omniCoveredIndices.size * 0.2); // 0.2 weight ensures multi-visibility strongly pulls the node
-            }
-
-            if (finalScore > bestScore && bestAngleScore > 0) {
-                bestScore = finalScore;
-                bestCandidate = { id: `AUTO-${equipments.length + 1}`, x: point.x, y: point.y, angle: bestAngle, bIdx: point.bIdx, isManual: false };
-                bestCoveredIndices = bestAngleCoveredIndices;
             }
         }
 
-        if (!bestCandidate || bestCoveredIndices.length === 0) {
+        if (!bestSitePoint || bestSiteCoveredIndices.length === 0) {
             logs.push({
                 id: 'stop', x: 0, y: 0, angle: 0, score: 0, coveredCount: 0,
-                message: `Auto-optimizer stopped: Target unreachable with remaining locations.`
+                message: `Auto-optimizer ended: Unfinished targeting with remaining coordinates.`
             });
             break; 
         }
 
-        bestCandidate.coveredPoints = [];
-        for (const idx of bestCoveredIndices) {
-            samples[idx].covered = true;
-            currentCoveredCount++;
-            bestCandidate.coveredPoints.push({x: samples[idx].x, y: samples[idx].y});
-        }
-        equipments.push(bestCandidate);
+        const angles = bestSiteAngles;
+        const suffix = ['A', 'B', 'C'];
+        const sectorCoveredPoints: Point[][] = [[], [], []];
 
-        if (bestCandidate.bIdx !== undefined && !establishedNodes.has(bestCandidate.bIdx)) {
-             establishedNodes.set(bestCandidate.bIdx, {x: bestCandidate.x, y: bestCandidate.y});
+        for (const idx of bestSiteCoveredIndices) {
+            samples[idx].covered = true;
+            currentCoveredScore += getWeight(samples[idx]);
+            
+            const s = samples[idx];
+            let bestAngleIdx = 0;
+            let maxRayScore = -1;
+            for (let aIdx = 0; aIdx < 3; aIdx++) {
+                const rs = evaluateRay(bestSitePoint, angles[aIdx], s, params, buildings);
+                if (rs > maxRayScore) {
+                     maxRayScore = rs;
+                     bestAngleIdx = aIdx;
+                }
+            }
+            sectorCoveredPoints[bestAngleIdx].push({x: s.x, y: s.y});
         }
-        
-        logs.push({
-            id: bestCandidate.id,
-            x: Math.round(bestCandidate.x),
-            y: Math.round(bestCandidate.y),
-            angle: bestCandidate.angle,
-            score: Math.round(bestScore * 100) / 100,
-            coveredCount: bestCoveredIndices.length,
-            message: `[AUTO] Node ${bestCandidate.id} placed ${bestCandidate.bIdx !== undefined ? `on Building #${bestCandidate.bIdx + 1}` : 'on Map'} at (${Math.round(bestCandidate.x)}, ${Math.round(bestCandidate.y)}) facing ${bestCandidate.angle}°. (Score: ${Math.round(bestScore * 100) / 100}). Secured ${bestCoveredIndices.length} meters of coverage.`
-        });
+
+        // Deploy the 3 co-located equipments representing the tri-sector site
+        for (let aIdx = 0; aIdx < 3; aIdx++) {
+            const eqId = `AUTO-${nextSiteIdx}-${suffix[aIdx]}`;
+            equipments.push({
+                id: eqId,
+                x: bestSitePoint.x,
+                y: bestSitePoint.y,
+                angle: angles[aIdx],
+                bIdx: bestSitePoint.bIdx,
+                coveredPoints: sectorCoveredPoints[aIdx],
+                isManual: false
+            });
+        }
+
+        if (bestSitePoint.bIdx !== undefined && !establishedNodes.has(bestSitePoint.bIdx)) {
+             establishedNodes.set(bestSitePoint.bIdx, {x: bestSitePoint.x, y: bestSitePoint.y});
+         }
+ 
+         logs.push({
+             id: `SITE-${nextSiteIdx}`,
+             x: Math.round(bestSitePoint.x),
+             y: Math.round(bestSitePoint.y),
+             angle: angles[0],
+             score: Math.round(bestSiteScore * 100) / 100,
+             coveredCount: bestSiteCoveredIndices.length,
+             message: `[AUTO-SITE] Tri-Sector Site #${nextSiteIdx} placed on Building #${bestSitePoint.bIdx + 1} at (${Math.round(bestSitePoint.x)}, ${Math.round(bestSitePoint.y)}) facing optimized dirs ${angles.join('°/')}. Secured ${bestSiteCoveredIndices.length} meters of building boundaries.`
+         });
+ 
+         nextSiteIdx++;
+     }
+
+    // Phase 3: Evaluate RF penetration on Second Verandas (Bonus Score only)
+    for (const sample of secondSamples) {
+        for (const eq of equipments) {
+            if (eq.bIdx !== undefined && eq.bIdx === sample.line.bIdx) continue; // No direct self-inside reception
+            const score = evaluateRay(eq, eq.angle, sample, params, buildings);
+            if (score > 0.05) {
+                sample.covered = true;
+                break; // One direct shot is enough
+            }
+        }
     }
 
-    const buildingCoverages: { bIdx: number; ratio: number; covered: number; total: number }[] = [];
+    const buildingCoverages: { 
+        bIdx: number; 
+        ratio: number; 
+        covered: number; 
+        total: number;
+        secondCovered?: number;
+        secondTotal?: number;
+    }[] = [];
+
     buildings.forEach((b, idx) => {
         const bSamples = samples.filter(s => s.line.bIdx === idx);
-        if (bSamples.length > 0) {
+        const bSecondSamples = secondSamples.filter(s => s.line.bIdx === idx);
+        
+        if (bSamples.length > 0 || bSecondSamples.length > 0) {
             const covered = bSamples.filter(s => s.covered).length;
+            const secondCovered = bSecondSamples.filter(s => s.covered).length;
+            
             buildingCoverages.push({
                 bIdx: idx,
                 total: bSamples.length,
                 covered: covered,
-                ratio: (covered / bSamples.length) * 100
+                ratio: bSamples.length > 0 ? (covered / bSamples.length) * 100 : 0,
+                secondCovered: secondCovered,
+                secondTotal: bSecondSamples.length
             });
         }
     });
 
     return {
         equipments,
-        coverageRatio: (currentCoveredCount / samples.length) * 100,
+        coverageRatio: totalWeightSum > 0 ? (currentCoveredScore / totalWeightSum) * 100 : 0,
         coveredSamples: samples.filter(s => s.covered).map(s => ({x: s.x, y: s.y})),
+        secondCoveredSamples: secondSamples.filter(s => s.covered).map(s => ({x: s.x, y: s.y})),
         logs,
         buildingCoverages
     };
