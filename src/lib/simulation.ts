@@ -191,7 +191,8 @@ export function evaluateRay(
     }
     if (blocked) return 0;
 
-    let f_d = d_m <= 70 ? 1 : (d_m <= 100 ? 0.9 : (d_m <= 150 ? 0.85 : 0));
+    const r_pct = d_m / params.maxRange;
+    let f_d = r_pct <= 0.46 ? 1.0 : (r_pct <= 0.66 ? 0.9 : (r_pct <= 1.0 ? 0.85 : 0));
 
     const vx = (point.x - sample.x) / d_px;
     const vy = (point.y - sample.y) / d_px;
