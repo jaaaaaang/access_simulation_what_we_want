@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Square, Minus, Play, RotateCcw, Image as ImageIcon, Terminal, Database, Search, ZoomIn, ZoomOut, RadioTower, Check, Sparkles, Download, Eraser, Save, FolderOpen, X, AlertTriangle, Info, Ruler } from 'lucide-react';
+import { Upload, Square, Minus, Play, RotateCcw, Image as ImageIcon, Terminal, Database, Search, ZoomIn, ZoomOut, RadioTower, Check, Sparkles, Download, Eraser, Save, FolderOpen, X, AlertTriangle, Info, Ruler, Undo, Redo, Trash2 } from 'lucide-react';
 import { Point, Line, Polygon, SimulationParams, SimulationResult, Equipment } from './types';
 import { runSimulation, pointInPolygon, snapToPolygonEdge, getSecondVerandas } from './lib/simulation';
 import { sampleBuildings, sampleVerandas } from './lib/sampleData';
@@ -132,6 +132,58 @@ export default function App() {
   const [buildings, setBuildings] = useState<Polygon[]>([]);
   const [verandas, setVerandas] = useState<Line[]>([]);
   const [manualEquipments, setManualEquipments] = useState<Equipment[]>([]);
+  const isUndoRedoAction = useRef(false);
+  const [historyState, setHistoryState] = useState<{
+    history: { buildings: Polygon[], verandas: Line[], manualEquipments: Equipment[] }[],
+    index: number
+  }>({
+    history: [],
+    index: -1
+  });
+
+  useEffect(() => {
+    if (isUndoRedoAction.current) {
+      isUndoRedoAction.current = false;
+      return;
+    }
+    setHistoryState(prev => {
+       const last = prev.history[prev.index];
+       if (last && last.buildings === buildings && last.verandas === verandas && last.manualEquipments === manualEquipments) {
+          return prev;
+       }
+       const newHistory = prev.history.slice(0, Math.max(0, prev.index + 1));
+       newHistory.push({ buildings, verandas, manualEquipments });
+       if (newHistory.length > 50) newHistory.shift();
+       return { history: newHistory, index: newHistory.length - 1 };
+    });
+  }, [buildings, verandas, manualEquipments]);
+
+  const handleUndo = () => {
+    if (historyState.index > 0) {
+      isUndoRedoAction.current = true;
+      const newIndex = historyState.index - 1;
+      const state = historyState.history[newIndex];
+      setBuildings(state.buildings);
+      setVerandas(state.verandas);
+      setManualEquipments(state.manualEquipments);
+      setHistoryState({ history: historyState.history, index: newIndex });
+      setResult(null);
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyState.index < historyState.history.length - 1) {
+      isUndoRedoAction.current = true;
+      const newIndex = historyState.index + 1;
+      const state = historyState.history[newIndex];
+      setBuildings(state.buildings);
+      setVerandas(state.verandas);
+      setManualEquipments(state.manualEquipments);
+      setHistoryState({ history: historyState.history, index: newIndex });
+      setResult(null);
+    }
+  };
+
   const [mode, setMode] = useState<'idle' | 'building' | 'veranda' | 'second_veranda' | 'equipment' | 'eraser' | 'ruler'>('idle');
   
   const [currentPolygon, setCurrentPolygon] = useState<Point[]>([]);
@@ -140,6 +192,17 @@ export default function App() {
   
   const [rulerLine, setRulerLine] = useState<{ start: Point; end: Point } | null>(null);
   const [rulerInputMeters, setRulerInputMeters] = useState<string>('50');
+  const [hoveredBuildingArea, setHoveredBuildingArea] = useState<{ x: number, y: number, areaM2: number, name: string } | null>(null);
+
+  const calculatePolygonArea = (poly: Polygon) => {
+    let area = 0;
+    for (let i = 0; i < poly.length; i++) {
+      const j = (i + 1) % poly.length;
+      area += poly[i].x * poly[j].y;
+      area -= poly[j].x * poly[i].y;
+    }
+    return Math.abs(area / 2);
+  };
   
   const [params, setParams] = useState<SimulationParams>({
     beamWidth: 60,
@@ -419,10 +482,25 @@ export default function App() {
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setMousePos({
-      x: (e.clientX - rect.left) / zoom,
-      y: (e.clientY - rect.top) / zoom
-    });
+    const x = (e.clientX - rect.left) / zoom;
+    const y = (e.clientY - rect.top) / zoom;
+    setMousePos({ x, y });
+
+    let foundBIdx = -1;
+    for (let i = 0; i < buildings.length; i++) {
+      if (pointInPolygon({ x, y }, buildings[i])) {
+        foundBIdx = i;
+        break;
+      }
+    }
+
+    if (foundBIdx !== -1) {
+      const pxArea = calculatePolygonArea(buildings[foundBIdx]);
+      const areaM2 = pxArea / (params.pixelsPerMeter ** 2);
+      setHoveredBuildingArea({ x: e.clientX, y: e.clientY, areaM2, name: `건물_${foundBIdx + 1}동` });
+    } else {
+      setHoveredBuildingArea(null);
+    }
   };
 
   const handleApplyRulerCalibration = () => {
@@ -1468,6 +1546,16 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-bg-main text-text-primary font-sans">
+      {hoveredBuildingArea && mode === 'idle' && (
+        <div 
+          className="fixed pointer-events-none z-50 bg-zinc-900/90 text-white px-2.5 py-1.5 rounded text-[10px] font-mono shadow-xl border border-zinc-700/50 backdrop-blur-md"
+          style={{ top: hoveredBuildingArea.y + 15, left: hoveredBuildingArea.x + 15 }}
+        >
+          <div className="font-bold text-gray-300 mb-0.5">{hoveredBuildingArea.name}</div>
+          <div>Area: <span className="text-[#00e5ff]">{Math.round(hoveredBuildingArea.areaM2).toLocaleString()}</span> m²</div>
+        </div>
+      )}
+
       {notification && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-[400px] px-4 animate-in fade-in slide-in-from-top-4 duration-300">
           <div className={`p-3.5 rounded-lg shadow-2xl border flex items-start space-x-3 backdrop-blur bg-zinc-950/95 text-white ${
@@ -1790,9 +1878,17 @@ export default function App() {
               </div>
             </div>
 
-            <button onClick={clearDrawing} className="mt-3 text-xs text-text-secondary hover:text-text-primary flex items-center">
-              <RotateCcw className="w-3 h-3 mr-1" /> Clear All Drawings
-            </button>
+            <div className="flex space-x-2 mt-3">
+              <button onClick={handleUndo} disabled={historyState.index <= 0} className="flex-1 text-xs text-text-secondary hover:text-white disabled:opacity-50 flex items-center justify-center py-1.5 bg-bg-accent rounded border border-border-color transition-colors">
+                <Undo className="w-3 h-3 mr-1" /> Undo
+              </button>
+              <button onClick={handleRedo} disabled={historyState.index >= historyState.history.length - 1} className="flex-1 text-xs text-text-secondary hover:text-white disabled:opacity-50 flex items-center justify-center py-1.5 bg-bg-accent rounded border border-border-color transition-colors">
+                <Redo className="w-3 h-3 mr-1" /> Redo
+              </button>
+              <button onClick={clearDrawing} className="flex-1 text-xs text-rose-400 hover:text-rose-300 flex items-center justify-center py-1.5 bg-bg-accent rounded border border-border-color transition-colors">
+                <Trash2 className="w-3 h-3 mr-1" /> Clear
+              </button>
+            </div>
           </section>
 
           <section>
@@ -1944,9 +2040,12 @@ export default function App() {
                     transform: `scale(${zoom})`, 
                     transformOrigin: 'top left',
                     width: canvasSize.width,
-                    height: canvasSize.height
+                    height: canvasSize.height,
+                    backgroundColor: '#111214',
+                    backgroundImage: 'radial-gradient(#27272a 1px, transparent 1px)',
+                    backgroundSize: '24px 24px'
                 }}
-                className={`${mode !== 'idle' ? 'cursor-crosshair' : 'cursor-default'} absolute top-0 left-0 bg-[#f8f9fa] shadow-inner`}
+                className={`${mode !== 'idle' ? 'cursor-crosshair' : 'cursor-default'} absolute top-0 left-0 shadow-inner`}
               />
             </div>
           )}
