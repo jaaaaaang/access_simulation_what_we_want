@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Square, Minus, Play, RotateCcw, Image as ImageIcon, Terminal, Database, Search, ZoomIn, ZoomOut, RadioTower, Check, Sparkles, Download, Eraser, Save, FolderOpen, X, AlertTriangle, Info } from 'lucide-react';
+import { Upload, Square, Minus, Play, RotateCcw, Image as ImageIcon, Terminal, Database, Search, ZoomIn, ZoomOut, RadioTower, Check, Sparkles, Download, Eraser, Save, FolderOpen, X, AlertTriangle, Info, Ruler } from 'lucide-react';
 import { Point, Line, Polygon, SimulationParams, SimulationResult, Equipment } from './types';
 import { runSimulation, pointInPolygon, snapToPolygonEdge, getSecondVerandas } from './lib/simulation';
 import { sampleBuildings, sampleVerandas } from './lib/sampleData';
@@ -49,6 +49,71 @@ const fetchJSONP = (url: string): Promise<any> => {
   });
 };
 
+const extractVworldErrorMessage = (errorObj: any): string => {
+  if (!errorObj) return '';
+  if (typeof errorObj === 'object') {
+    return errorObj.text || errorObj.message || JSON.stringify(errorObj);
+  }
+  return String(errorObj);
+};
+
+// Help extract physical building name from VWorld properties dynamically (adaptable to different schema keys)
+const getBuildingNameFromProperties = (properties: any): string => {
+  if (!properties) return '';
+  const searchKeys = [
+    'buld_nm', 'bld_nm', 'bldg_nm', 'buld_nm_dc', 'bldgbld_nm', 
+    'BLD_NM', 'BULD_NM', 'BLDG_NM', 'facil_nm', 'FACIL_NM'
+  ];
+  for (const key of searchKeys) {
+    if (properties[key] !== undefined && properties[key] !== null) {
+      return String(properties[key]).trim();
+    }
+  }
+  for (const [_, val] of Object.entries(properties)) {
+    if (typeof val === 'string' && val.length > 1) {
+      if (val.includes('동') || val.includes('아파트') || val.includes('타워') || val.includes('빌라') || val.includes('맨션') || val.includes('단지')) {
+        return val.trim();
+      }
+    }
+  }
+  return '';
+};
+
+// Intelligently extract core proprietary noun from query or title to match only target apartments on client-side
+const extractCoreApartmentName = (title: string, query: string): string => {
+  const cleanHtml = (txt: string) => txt.replace(/<\/?[^>]+(>|$)/g, "");
+  let clean = cleanHtml(title || '').trim();
+  
+  const trashWords = [
+    '아파트', '오피스텔', '빌라', '타워', '맨션', '상가', '단지', '주택', '공동주택',
+    '대구광역시', '서울특별시', '부산광역시', '인천광역시', '대전광역시', '광주광역시', '울산광역시', '경기도', '경상북도', '경상남도', '전라북도', '전라남도', '충청북도', '충청남도', '강원도', '제주도',
+    '대구', '서울', '부산', '인천', '대전', '광주', '울산', '세종',
+    '특별시', '광역시', '특별자치시', '특별자치도',
+    '시', '군', '구', '동', '읍', '면', '리', '대로', '로', '길'
+  ];
+
+  const queryTokens = query.split(/\s+/).filter(t => t.length > 1);
+  const cleanQueryTokens = queryTokens.filter(t => !trashWords.includes(t));
+  if (cleanQueryTokens.length > 0) {
+    cleanQueryTokens.sort((a, b) => b.length - a.length);
+    return cleanQueryTokens[0];
+  }
+
+  const tokens = clean.split(/\s+/).filter(t => t.length > 1);
+  const cleanTokens = tokens.filter(t => !trashWords.includes(t));
+  if (cleanTokens.length > 0) {
+    cleanTokens.sort((a, b) => b.length - a.length);
+    return cleanTokens[0];
+  }
+
+  let core = clean;
+  trashWords.forEach(word => {
+    core = core.replace(new RegExp(word, 'g'), '');
+  });
+  
+  return core.trim() || clean.substring(0, 5);
+};
+
 export default function App() {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
 
@@ -67,11 +132,14 @@ export default function App() {
   const [buildings, setBuildings] = useState<Polygon[]>([]);
   const [verandas, setVerandas] = useState<Line[]>([]);
   const [manualEquipments, setManualEquipments] = useState<Equipment[]>([]);
-  const [mode, setMode] = useState<'idle' | 'building' | 'veranda' | 'second_veranda' | 'equipment' | 'eraser'>('idle');
+  const [mode, setMode] = useState<'idle' | 'building' | 'veranda' | 'second_veranda' | 'equipment' | 'eraser' | 'ruler'>('idle');
   
   const [currentPolygon, setCurrentPolygon] = useState<Point[]>([]);
   const [currentLineStart, setCurrentLineStart] = useState<Point | null>(null);
   const [mousePos, setMousePos] = useState<Point | null>(null);
+  
+  const [rulerLine, setRulerLine] = useState<{ start: Point; end: Point } | null>(null);
+  const [rulerInputMeters, setRulerInputMeters] = useState<string>('50');
   
   const [params, setParams] = useState<SimulationParams>({
     beamWidth: 60,
@@ -107,15 +175,12 @@ export default function App() {
     return localStorage.getItem('vworld_api_domain') || window.location.origin;
   });
   const [vworldRequestMode, setVworldRequestMode] = useState<'direct' | 'proxy'>(() => {
-    return (localStorage.getItem('vworld_request_mode') as 'direct' | 'proxy') || 'direct';
+    return (localStorage.getItem('vworld_request_mode') as 'direct' | 'proxy') || 'proxy';
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchCandidates, setSearchCandidates] = useState<any[]>([]);
-  const [searchStatus, setSearchStatus] = useState<'idle' | 'searching' | 'success' | 'error' | 'no_result'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [isFetchingPolygons, setIsFetchingPolygons] = useState(false);
-  const [searchLayer, setSearchLayer] = useState<'LT_C_SPBD' | 'LT_C_BLDINFO'>('LT_C_SPBD');
-  const [useNameFilter, setUseNameFilter] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -265,6 +330,13 @@ export default function App() {
 
     if (mode === 'building') {
       setCurrentPolygon([...currentPolygon, p]);
+    } else if (mode === 'ruler') {
+      if (!currentLineStart) {
+        setCurrentLineStart(p);
+      } else {
+        setRulerLine({ start: currentLineStart, end: p });
+        setCurrentLineStart(null);
+      }
     } else if (mode === 'veranda') {
       if (!currentLineStart) {
         setCurrentLineStart(p);
@@ -286,10 +358,17 @@ export default function App() {
            finalP = snapToPolygonEdge(p, buildings[bIdx]);
        }
        
-       // Unique site counter
-       const uniqueCoords = new Set<string>();
-       manualEquipments.forEach(e => uniqueCoords.add(`${Math.round(e.x)},${Math.round(e.y)}`));
-       const nextSiteIdx = uniqueCoords.size + 1;
+       let maxIdx = 0;
+       manualEquipments.forEach(e => {
+         if (e.id.startsWith('M-')) {
+           const parts = e.id.split('-');
+           if (parts.length >= 2) {
+             const idx = parseInt(parts[1], 10);
+             if (!isNaN(idx) && idx > maxIdx) maxIdx = idx;
+           }
+         }
+       });
+       const nextSiteIdx = maxIdx + 1;
 
        const s1 = { id: `M-${nextSiteIdx}-A`, x: finalP.x, y: finalP.y, angle: 0, bIdx: bIdx >= 0 ? bIdx : undefined, isManual: true };
        const s2 = { id: `M-${nextSiteIdx}-B`, x: finalP.x, y: finalP.y, angle: 120, bIdx: bIdx >= 0 ? bIdx : undefined, isManual: true };
@@ -301,8 +380,7 @@ export default function App() {
       // Priority 1: Eraser Manual Equipment (remove entire co-located site)
       const eqIdx = manualEquipments.findIndex(eq => Math.sqrt((eq.x - p.x)**2 + (eq.y - p.y)**2) < 10);
       if (eqIdx >= 0) {
-        const target = manualEquipments[eqIdx];
-        setManualEquipments(manualEquipments.filter(e => Math.sqrt((e.x - target.x)**2 + (e.y - target.y)**2) >= 2));
+        setManualEquipments(manualEquipments.filter((_, idx) => idx !== eqIdx));
         setResult(null);
         return;
       }
@@ -333,7 +411,7 @@ export default function App() {
       setCurrentPolygon([]);
     } else if (mode === 'building') {
       setCurrentPolygon([]);
-    } else if (mode === 'veranda' || mode === 'second_veranda') {
+    } else if (mode === 'veranda' || mode === 'second_veranda' || mode === 'ruler') {
       setCurrentLineStart(null);
     }
   };
@@ -345,6 +423,23 @@ export default function App() {
       x: (e.clientX - rect.left) / zoom,
       y: (e.clientY - rect.top) / zoom
     });
+  };
+
+  const handleApplyRulerCalibration = () => {
+    if (!rulerLine) return;
+    const dx = rulerLine.end.x - rulerLine.start.x;
+    const dy = rulerLine.end.y - rulerLine.start.y;
+    const distPx = Math.sqrt(dx * dx + dy * dy);
+    const meters = parseFloat(rulerInputMeters);
+    if (isNaN(meters) || meters <= 0) {
+      showAppNotification('유효한 거리 값을 입력해 주세요 (0보다 큰 숫자)', 'error');
+      return;
+    }
+    const newPPM = distPx / meters;
+    setParams(prev => ({ ...prev, pixelsPerMeter: parseFloat(newPPM.toFixed(3)) }));
+    setRulerLine(null);
+    setMode('idle');
+    showAppNotification(`보정 완료: 스케일이 ${newPPM.toFixed(3)} Pixels/Meter 로 업데이트 되었습니다. (그려진 선: ${Math.round(distPx)}px = ${meters}m)`, 'success');
   };
 
   const clearDrawing = () => {
@@ -462,8 +557,7 @@ export default function App() {
       return;
     }
 
-    setSearchStatus('searching');
-    setSearchCandidates([]);
+    setIsSearching(true);
     setErrorMessage('');
 
     try {
@@ -475,17 +569,57 @@ export default function App() {
       const url = `https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=15&query=${encodeQuery}&type=place&format=json&key=${vworldKey.trim()}&domain=${encodeURIComponent(vworldDomain.trim())}`;
       
       let data: any;
+      let usedMode = vworldRequestMode;
 
-      if (vworldRequestMode === 'direct') {
-        data = await fetchJSONP(url);
-      } else {
-        const targetFetchUrl = `/api/vworld-proxy?url=${encodeURIComponent(url)}`;
-        const res = await fetch(targetFetchUrl);
-        const text = await res.text();
-        try {
+      try {
+        if (usedMode === 'direct') {
+          data = await fetchJSONP(url);
+        } else {
+          const targetFetchUrl = `/api/vworld-proxy?url=${encodeURIComponent(url)}`;
+          const res = await fetch(targetFetchUrl);
+          if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(`Server Proxy returned status ${res.status}: ${errorText.substring(0, 100)}`);
+          }
+          const text = await res.text();
           data = JSON.parse(text);
-        } catch (err) {
-          throw new Error(`서버 프록시 에러 (구글 서버 IP 대역 차단 가능성 높음): ${text.substring(0, 150)}... 해결법: 호출 방식을 '직접 호출 (WAF 우회 권장)'로 설정해 주세요.`);
+        }
+      } catch (firstErr: any) {
+        console.warn("Primary fetch option failed, trying fallback mode...", firstErr);
+        const fallbackMode = usedMode === 'direct' ? 'proxy' : 'direct';
+        try {
+          if (fallbackMode === 'direct') {
+            data = await fetchJSONP(url);
+          } else {
+            const targetFetchUrl = `/api/vworld-proxy?url=${encodeURIComponent(url)}`;
+            const res = await fetch(targetFetchUrl);
+            if (!res.ok) {
+              const errorText = await res.text();
+              throw new Error(`Server Proxy returned status ${res.status}: ${errorText.substring(0, 100)}`);
+            }
+            const text = await res.text();
+            data = JSON.parse(text);
+          }
+        } catch (secondErr: any) {
+          console.warn("Alternative fallback failed, attempting public CORS proxy as final resort...", secondErr);
+          try {
+            // Bypass both local CORS restrictions and Cloud Run sandbox IP bans via public CORS proxy
+            const publicProxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            const res = await fetch(publicProxyUrl);
+            if (!res.ok) {
+              throw new Error(`Public proxy returned status ${res.status}`);
+            }
+            const text = await res.text();
+            data = JSON.parse(text);
+          } catch (thirdErr: any) {
+            throw new Error(
+              `검색 호출이 완전히 실패했습니다.\n\n` +
+              `1. 기본 호출(${usedMode}) 제한: ${firstErr.message}\n` +
+              `2. 대체 호출(${fallbackMode}) 제한: ${secondErr.message}\n` +
+              `3. 외부 CORS 우회 프록시 제한: ${thirdErr.message}\n\n` +
+              `[해결방법] 브이월드 개발자 센터(vworld.kr) 내 인증키 설정에서 '등록도메인'에 현재 도메인 '${window.location.hostname}' 또는 '${window.location.origin}'이 올바르게 추가되어 있는지 확인하고 사용해 주세요.`
+            );
+          }
         }
       }
 
@@ -494,36 +628,27 @@ export default function App() {
         if (!Array.isArray(items)) {
           items = [items];
         }
-        setSearchCandidates(items);
-        setSearchStatus('success');
-      } else {
-        const status = data.response?.status || 'UNKNOWN';
-        const errorMsg = data.response?.error || '검색 결과가 없거나 인증키 및 도메인이 올바르지 않습니다.';
-        if (status === 'NOT_FOUND' || status === 'EMPTY') {
-          setSearchStatus('no_result');
+        if (items.length > 0) {
+          handleSelectCandidate(items[0]);
         } else {
-          setSearchStatus('error');
-          let extraHelp = '';
-          if (vworldRequestMode === 'proxy') {
-            extraHelp = ' (구글 클라우드 서버IP 차단 예방을 위해 "내 브라우저에서 직접 호출" 모드로 변경해 보시는 것을 권장합니다.)';
-          }
-          setErrorMessage(`에러: ${status} - ${errorMsg}${extraHelp}`);
+          setErrorMessage('검색 결과가 없습니다.');
         }
+      } else {
+        const rawError = data.response?.error;
+        const errorMsg = rawError ? extractVworldErrorMessage(rawError) : '검색 결과가 없습니다.';
+        setErrorMessage(errorMsg);
       }
     } catch (err: any) {
       console.error(err);
-      setSearchStatus('error');
-      let extraHelp = '';
-      if (vworldRequestMode === 'proxy') {
-        extraHelp = ' [구글 클라우드 서버 IP 대역 대개 차단 때문일 수 있으므로 "내 브라우저에서 직접 호출"을 권장합니다.]';
-      }
-      setErrorMessage(`네트워크 오류: ${err.message}.${extraHelp} CORS 정책 또는 브이월드에 등록된 도메인 설정을 확인해 주세요.`);
+      setErrorMessage(err.message || String(err));
+    } finally {
+      setIsSearching(false);
     }
   };
 
   const handleSelectCandidate = async (candidate: any) => {
     if (!candidate.point || !candidate.point.x || !candidate.point.y) {
-      showAppNotification("선택한 객체에 좌표 정보가 없습니다.", "warning");
+      showAppNotification("검색된 객체에 좌표 정보가 없습니다.", "warning");
       return;
     }
 
@@ -531,47 +656,189 @@ export default function App() {
     const lon = Number(candidate.point.x);
     const lat = Number(candidate.point.y);
 
-    // Create bounds (~600m radius around matched point)
-    const minLon = lon - 0.007;
-    const maxLon = lon + 0.007;
-    const minLat = lat - 0.005;
-    const maxLat = lat + 0.005;
+    // Fixed bbox calculation (approx 800 meters radius)
+    const fixedRadius = 800;
+    const deltaLon = fixedRadius / 88000;
+    const deltaLat = fixedRadius / 111000;
+
+    const minLon = lon - deltaLon;
+    const maxLon = lon + deltaLon;
+    const minLat = lat - deltaLat;
+    const maxLat = lat + deltaLat;
 
     const geomFilter = `BOX(${minLon},${minLat},${maxLon},${maxLat})`;
     const cleanTitle = stripHtml(candidate.title || '');
-    const apartmentName = cleanTitle.split(/\s+/)[0]; 
+    const coreName = extractCoreApartmentName(candidate.title, searchQuery);
 
     try {
-      // VWorld Data API 2.0 GetFeature
-      let url = `https://api.vworld.kr/req/data?service=data&request=GetFeature&data=${searchLayer}&key=${vworldKey.trim()}&format=json&crs=EPSG:4326&size=100&geomFilter=${geomFilter}&domain=${encodeURIComponent(vworldDomain.trim())}`;
-
-      if (useNameFilter && apartmentName) {
-        const encodedName = encodeURIComponent(apartmentName);
-        url += `&attrFilter=buld_nm:like:${encodedName}`;
-      }
-
-      let data: any;
-      if (vworldRequestMode === 'direct') {
-        data = await fetchJSONP(url);
-      } else {
-        const targetFetchUrl = `/api/vworld-proxy?url=${encodeURIComponent(url)}`;
-        const res = await fetch(targetFetchUrl);
-        const text = await res.text();
+      const fetchVWorldData = async (url: string) => {
+        let usedMode = vworldRequestMode;
         try {
-          data = JSON.parse(text);
-        } catch (err) {
-          throw new Error(`서버 프록시 에러 (구글 서버 IP 대역 차단 가능성 높음): ${text.substring(0, 150)}... 해결법: 호출 방식을 '직접 호출 (WAF 우회 권장)'로 설정해 주세요.`);
+          if (usedMode === 'direct') {
+            return await fetchJSONP(url);
+          } else {
+            const targetFetchUrl = `/api/vworld-proxy?url=${encodeURIComponent(url)}`;
+            const res = await fetch(targetFetchUrl);
+            if (!res.ok) throw new Error(`Proxy error ${res.status}`);
+            return JSON.parse(await res.text());
+          }
+        } catch (firstErr: any) {
+          const fallbackMode = usedMode === 'direct' ? 'proxy' : 'direct';
+          try {
+            if (fallbackMode === 'direct') {
+              return await fetchJSONP(url);
+            } else {
+              const targetFetchUrl = `/api/vworld-proxy?url=${encodeURIComponent(url)}`;
+              const res = await fetch(targetFetchUrl);
+              if (!res.ok) throw new Error(`Proxy error ${res.status}`);
+              return JSON.parse(await res.text());
+            }
+          } catch (secondErr: any) {
+            try {
+              const publicProxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+              const res = await fetch(publicProxyUrl);
+              if (!res.ok) throw new Error(`Public proxy error ${res.status}`);
+              return JSON.parse(await res.text());
+            } catch (thirdErr: any) {
+              throw new Error(
+                `건물 폴리곤 정보 로드가 완전히 실패했습니다.\n\n` +
+                `1. 기본 호출(${usedMode}) 제한: ${firstErr.message}\n` +
+                `2. 대체 호출(${fallbackMode}) 제한: ${secondErr.message}\n` +
+                `3. 외부 CORS 우회 프록시 제한: ${thirdErr.message}\n\n` +
+                `[해결방법] 브이월드 개발자 센터(vworld.kr) 내 인증키 설정에서 '등록도메인'에 현재 도메인 '${window.location.origin}'이 올바르게 추가되어 있는지 확인하고 사용해 주세요.`
+              );
+            }
+          }
+        }
+      };
+
+      let rawFeatures: any[] = [];
+      let currentPage = 1;
+      let hasMore = true;
+      let apiStatus = '';
+      let apiError: any = null;
+
+      while (hasMore) {
+        const url = `https://api.vworld.kr/req/data?service=data&request=GetFeature&data=LT_C_SPBD&key=${vworldKey.trim()}&format=json&crs=EPSG:4326&size=1000&page=${currentPage}&geomFilter=${geomFilter}&domain=${encodeURIComponent(vworldDomain.trim())}`;
+        const data = await fetchVWorldData(url);
+        
+        if (data.response && data.response.status === 'OK' && data.response.result) {
+          apiStatus = 'OK';
+          const featureCollection = data.response.result.featureCollection;
+          if (featureCollection && featureCollection.features && featureCollection.features.length > 0) {
+            rawFeatures = rawFeatures.concat(featureCollection.features);
+            if (featureCollection.features.length < 1000 || currentPage >= 4) { // Max 4000 buildings
+              hasMore = false;
+            } else {
+              currentPage++;
+            }
+          } else {
+            hasMore = false;
+          }
+        } else if (data.response && data.response.status === 'NOT_FOUND') {
+          apiStatus = 'NOT_FOUND';
+          hasMore = false;
+        } else {
+          apiStatus = data.response?.status || 'ERROR';
+          apiError = data.response?.error;
+          hasMore = false;
         }
       }
 
-      if (data.response && data.response.status === 'OK' && data.response.result) {
-        const featureCollection = data.response.result.featureCollection;
-        if (featureCollection && featureCollection.features && featureCollection.features.length > 0) {
-          const features = featureCollection.features;
+      if (rawFeatures.length > 0) {
+        // Helper function to calculate distance from clicked center in meters
+        const getFeatureDistance = (f: any) => {
+          let samplePoint: number[] | null = null;
+          if (f.geometry && f.geometry.type === 'Polygon' && f.geometry.coordinates[0]) {
+              samplePoint = f.geometry.coordinates[0][0];
+            } else if (f.geometry && f.geometry.type === 'MultiPolygon' && f.geometry.coordinates[0] && f.geometry.coordinates[0][0]) {
+              samplePoint = f.geometry.coordinates[0][0][0];
+            }
+            if (!samplePoint) return Infinity;
+            const dx = (samplePoint[0] - lon) * 88000;
+            const dy = (samplePoint[1] - lat) * 111000;
+            return Math.sqrt(dx * dx + dy * dy);
+          };
+
+          // Attach distance
+          const featuresWithDist = rawFeatures.map((f: any) => ({
+            feature: f,
+            dist: getFeatureDistance(f)
+          }));
+
+          let filteredFeatures: any[] = [];
+          let filterAppliedMessage = '';
+
+          // 1. Try to find features that match the name first (if coreName is valid)
+          let nameMatchedFeatures: any[] = [];
+          if (coreName && coreName.length >= 2) {
+            nameMatchedFeatures = featuresWithDist.filter((item: any) => {
+              const bName = getBuildingNameFromProperties(item.feature.properties);
+              if (!bName) return false;
+              const cleanBName = bName.replace(/\s+/g, '');
+              const cleanCore = coreName.replace(/\s+/g, '');
+              return cleanBName.includes(cleanCore) || cleanCore.includes(cleanBName);
+            });
+          }
+
+          if (nameMatchedFeatures.length > 0) {
+            filteredFeatures = nameMatchedFeatures.map(x => x.feature);
+            filterAppliedMessage = `(검색어 단지명 매칭: 일치 건물 ${filteredFeatures.length}개 로드)`;
+          } else {
+             // 2. Heuristic: find the most common building name among the closest buildings (< 200m)
+             const veryCloseFeatures = featuresWithDist.filter((item: any) => item.dist <= 200);
+             if (veryCloseFeatures.length > 0) {
+                 const nameCounts: Record<string, number> = {};
+                 veryCloseFeatures.forEach((item: any) => {
+                     const bName = getBuildingNameFromProperties(item.feature.properties);
+                     if (bName && bName.length > 1) { // ignore empty or 1-char names
+                         nameCounts[bName] = (nameCounts[bName] || 0) + 1;
+                     }
+                 });
+                 
+                 let bestName = '';
+                 let bestCount = 0;
+                 for (const [name, count] of Object.entries(nameCounts)) {
+                     if (count > bestCount) {
+                         bestCount = count;
+                         bestName = name;
+                     }
+                 }
+
+                 if (bestName && bestCount >= 1) {
+                     // Found a dominant building name near the center! Select ALL buildings in the 800m radius with this name!
+                     const matchingNameFeatures = featuresWithDist.filter((item: any) => {
+                         const bName = getBuildingNameFromProperties(item.feature.properties);
+                         return bName === bestName;
+                     });
+                     
+                     // Also include very close buildings that might lack a name, just in case they are part of the core complex.
+                     const coreRadiusFeatures = featuresWithDist.filter((item: any) => item.dist <= 100);
+                     const combined = new Set([...matchingNameFeatures, ...coreRadiusFeatures]);
+                     
+                     filteredFeatures = Array.from(combined).map((x: any) => x.feature);
+                     filterAppliedMessage = `(자동 추론 매칭 [${bestName}]: 건물 ${filteredFeatures.length}개 로드)`;
+                 }
+             }
+
+             // 3. Fallback if still empty
+             if (filteredFeatures.length === 0) {
+                const maxAllowedDistance = 250; // Capture more of the complex if we really have no name
+                const closeFeatures = featuresWithDist.filter((item: any) => item.dist <= maxAllowedDistance);
+                if (closeFeatures.length > 0) {
+                  filteredFeatures = closeFeatures.map(x => x.feature);
+                  filterAppliedMessage = `(근접 매칭: 반경 ${maxAllowedDistance}m 이내 건물 ${filteredFeatures.length}개 로드)`;
+                } else {
+                  const sortedByDist = [...featuresWithDist].sort((a: any, b: any) => a.dist - b.dist);
+                  filteredFeatures = sortedByDist.slice(0, 15).map(x => x.feature);
+                  filterAppliedMessage = `(최근접 매칭: 건물 ${filteredFeatures.length}개 로드)`;
+                }
+             }
+          }
 
           let localMinLon = Infinity, localMinLat = Infinity, localMaxLon = -Infinity, localMaxLat = -Infinity;
           
-          features.forEach((f: any) => {
+          filteredFeatures.forEach((f: any) => {
             if (f.geometry && f.geometry.type === 'Polygon') {
               f.geometry.coordinates[0].forEach((coord: number[]) => {
                 localMinLon = Math.min(localMinLon, coord[0]);
@@ -601,7 +868,7 @@ export default function App() {
           const cHeight = 800;
 
           const parsedBuildings: Polygon[] = [];
-          features.forEach((f: any) => {
+          filteredFeatures.forEach((f: any) => {
                if (f.geometry && f.geometry.type === 'Polygon') {
                     const poly = f.geometry.coordinates[0].map((coord: number[]) => {
                          const x = ((coord[0] - localMinLon) / lonRange) * (cWidth * 0.8) + (cWidth * 0.1);
@@ -611,12 +878,12 @@ export default function App() {
                     parsedBuildings.push(poly);
                } else if (f.geometry && f.geometry.type === 'MultiPolygon') {
                     f.geometry.coordinates.forEach((multiPoly: number[][][]) => {
-                        const poly = multiPoly[0].map((coord: number[]) => {
-                             const x = ((coord[0] - localMinLon) / lonRange) * (cWidth * 0.8) + (cWidth * 0.1);
-                             const y = cHeight - (((coord[1] - localMinLat) / latRange) * (cHeight * 0.8) + (cHeight * 0.1)); 
-                             return {x, y};
-                        });
-                        parsedBuildings.push(poly);
+                         const poly = multiPoly[0].map((coord: number[]) => {
+                              const x = ((coord[0] - localMinLon) / lonRange) * (cWidth * 0.8) + (cWidth * 0.1);
+                              const y = cHeight - (((coord[1] - localMinLat) / latRange) * (cHeight * 0.8) + (cHeight * 0.1)); 
+                              return {x, y};
+                         });
+                         parsedBuildings.push(poly);
                     });
                }
           });
@@ -638,19 +905,26 @@ export default function App() {
             cHeight
           });
 
+          // Calculate precise physical scale
+          const spanMeters = lonRange * 88000;
+          const mapWidthPx = cWidth * 0.8;
+          const calculatedPPM = Number((mapWidthPx / spanMeters).toFixed(3));
+          setParams(prev => ({ ...prev, pixelsPerMeter: calculatedPPM }));
+
           if (canvasRef.current) {
             canvasRef.current.width = cWidth;
             canvasRef.current.height = cHeight;
           }
 
-          showAppNotification(`성공적으로 ${parsedBuildings.length}개의 건물 폴리곤을 가져와 시뮬레이션 보드에 배치했습니다!`, "success");
+          showAppNotification(`성공적으로 ${parsedBuildings.length}개의 건물 폴리곤을 가져와 시뮬레이션 보드에 배치했습니다! ${filterAppliedMessage}`, "success");
+        } else if (apiStatus === 'NOT_FOUND') {
+          showAppNotification(`해당 검색 영역 내에 로드할 수 있는 건물 데이터가 존재하지 않습니다. 다른 레이어를 선택하거나 검색어를 변경해보세요.`, "warning");
+        } else if (apiStatus === 'ERROR' || apiError) {
+          const errorMsg = apiError ? extractVworldErrorMessage(apiError) : '건물 데이터를 가져오지 못했습니다. API 제한량 또는 인증키 설정을 확인하세요.';
+          showAppNotification(`인식 에러: ${errorMsg}`, "error");
         } else {
-          showAppNotification(`해당 영역 또는 단지 조건(${apartmentName})으로 가져온 건물 데이터가 레이어에 없습니다. 레이어를 변경하거나 필터를 끄고 다시 로드해 보세요.`, "warning");
+          showAppNotification(`해당 영역 또는 단지 조건(${coreName || cleanTitle})으로 가져온 건물 데이터가 레이어에 없습니다. 레이어를 변경하거나 필터를 끄고 다시 로드해 보세요.`, "warning");
         }
-      } else {
-        const errorMsg = data.response?.error || '건물 데이터를 가져오지 못했습니다. API 제한량 또는 인증키 설정을 확인하세요.';
-        showAppNotification(`인식 에러: ${errorMsg}`, "error");
-      }
     } catch (err: any) {
       console.error(err);
       showAppNotification(`폴리곤 로드에 실패했습니다: ${err.message}`, "error");
@@ -811,10 +1085,7 @@ export default function App() {
   };
 
   const deleteEq = (id: string) => {
-      const target = manualEquipments.find(eq => eq.id === id);
-      if (target) {
-          setManualEquipments(manualEquipments.filter(eq => Math.sqrt((eq.x - target.x)**2 + (eq.y - target.y)**2) >= 2));
-      }
+      setManualEquipments(manualEquipments.filter(eq => eq.id !== id));
       setResult(null);
       setAiInsights(null);
   };
@@ -966,6 +1237,38 @@ export default function App() {
         ctx.setLineDash([5, 5]);
         ctx.stroke();
         ctx.setLineDash([]);
+      } else if (mode === 'ruler') {
+        ctx.strokeStyle = '#ff3d00';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.setLineDash([6, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.beginPath();
+        ctx.arc(currentLineStart.x, currentLineStart.y, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ff3d00';
+        ctx.fill();
+
+        const dx = mousePos.x - currentLineStart.x;
+        const dy = mousePos.y - currentLineStart.y;
+        const distPx = Math.sqrt(dx * dx + dy * dy);
+        
+        ctx.save();
+        ctx.fillStyle = 'rgba(15, 15, 20, 0.9)';
+        ctx.strokeStyle = 'rgba(255, 61, 0, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(mousePos.x + 14, mousePos.y + 14, 110, 26, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px Inter';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`길이: ${Math.round(distPx)} px`, mousePos.x + 69, mousePos.y + 27);
+        ctx.restore();
       } else {
         ctx.strokeStyle = '#ffb300';
         ctx.lineWidth = 5;
@@ -979,8 +1282,33 @@ export default function App() {
     const activeEquipments = result ? result.equipments : manualEquipments;
     const isSimulated = !!result;
 
+    const pciColors = [
+      { fill: 'rgba(0, 229, 255, 0.14)', stroke: 'rgba(0, 229, 255, 0.4)', base: '#0288d1', stream: 'rgba(0, 229, 255, 0.28)' },   // Cyan
+      { fill: 'rgba(255, 64, 129, 0.14)', stroke: 'rgba(255, 64, 129, 0.4)', base: '#f50057', stream: 'rgba(255, 64, 129, 0.28)' }, // Pink
+      { fill: 'rgba(0, 230, 118, 0.14)', stroke: 'rgba(0, 230, 118, 0.4)', base: '#00c853', stream: 'rgba(0, 230, 118, 0.28)' }, // Green
+      { fill: 'rgba(255, 152, 0, 0.14)', stroke: 'rgba(255, 152, 0, 0.4)', base: '#ff9100', stream: 'rgba(255, 152, 0, 0.28)' }, // Orange
+      { fill: 'rgba(213, 0, 249, 0.14)', stroke: 'rgba(213, 0, 249, 0.4)', base: '#d500f9', stream: 'rgba(213, 0, 249, 0.28)' }, // Purple
+      { fill: 'rgba(255, 234, 0, 0.14)', stroke: 'rgba(255, 234, 0, 0.4)', base: '#fbc02d', stream: 'rgba(255, 234, 0, 0.28)' }, // Yellow
+    ];
+
+    const getPciColor = (eqId: string, isSim: boolean) => {
+      const match = eqId.match(/\d+/);
+      let num = match ? parseInt(match[0], 10) : 1;
+      const theme = pciColors[(num - 1) % pciColors.length];
+      if (!isSim) {
+        return {
+          fill: theme.fill.replace('0.14', '0.2'), 
+          stroke: theme.stroke.replace('0.4', '0.6'),
+          base: theme.base,
+          stream: theme.stream
+        };
+      }
+      return theme;
+    };
+
     // 1. Draw Sector Beams first
     activeEquipments.forEach((eq) => {
+      const pciColor = getPciColor(eq.id, isSimulated);
       const angleRad = (eq.angle - 90) * Math.PI / 180;
       const beamHalfConf = (params.beamWidth / 2) * Math.PI / 180;
       const mainStart = angleRad - beamHalfConf;
@@ -991,9 +1319,9 @@ export default function App() {
       ctx.moveTo(eq.x, eq.y);
       ctx.arc(eq.x, eq.y, radius, mainStart, mainEnd);
       ctx.closePath();
-      ctx.fillStyle = isSimulated ? 'rgba(0, 229, 255, 0.14)' : 'rgba(255, 179, 0, 0.14)';
+      ctx.fillStyle = pciColor.fill;
       ctx.fill();
-      ctx.strokeStyle = isSimulated ? 'rgba(0, 229, 255, 0.35)' : 'rgba(255, 179, 0, 0.35)';
+      ctx.strokeStyle = pciColor.stroke;
       ctx.lineWidth = 1.2;
       ctx.stroke();
     });
@@ -1001,13 +1329,14 @@ export default function App() {
     if (result) {
       // 2. Draw Connection Lines (faint beam stream lines)
       result.equipments.forEach((eq) => {
+        const pciColor = getPciColor(eq.id, true);
         if (eq.coveredPoints && eq.coveredPoints.length > 0) {
           ctx.beginPath();
           eq.coveredPoints.forEach(p => {
              ctx.moveTo(eq.x, eq.y);
              ctx.lineTo(p.x, p.y);
           });
-          ctx.strokeStyle = 'rgba(0, 229, 255, 0.28)'; // visible faint cyan stream line
+          ctx.strokeStyle = pciColor.stream; // visible faint stream line
           ctx.lineWidth = 0.8;
           ctx.stroke();
         }
@@ -1047,12 +1376,14 @@ export default function App() {
       ctx.lineWidth = 2.2;
       ctx.stroke();
 
+      const pciColor = getPciColor(eq.id, isSimulated);
+
       // Draw sector circle
       ctx.beginPath();
       ctx.arc(iconX, iconY, 11, 0, Math.PI * 2); // 11px radius (highly legible)
       ctx.fillStyle = '#ffffff';
       ctx.fill();
-      ctx.strokeStyle = isSimulated ? '#0288d1' : '#f57c00'; // Darker theme border
+      ctx.strokeStyle = pciColor.base;
       ctx.lineWidth = 1.8;
       ctx.stroke();
 
@@ -1084,7 +1415,56 @@ export default function App() {
       ctx.stroke();
     });
 
-  }, [imageSrc, buildings, verandas, currentPolygon, currentLineStart, mousePos, result, params, manualEquipments]);
+    // 7. Draw dynamic Scale Bar Overlay
+    if (params.pixelsPerMeter && canvas.width > 200 && canvas.height > 150) {
+      const getNiceScaleDistance = (ppm: number): number => {
+        const targetPx = 120;
+        const targetMeters = targetPx / ppm;
+        const niceDistances = [5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+        let bestDist = 100;
+        let minDiff = Infinity;
+        for (const d of niceDistances) {
+          const diff = Math.abs(d - targetMeters);
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestDist = d;
+          }
+        }
+        return bestDist;
+      };
+
+      const scaleMeters = getNiceScaleDistance(params.pixelsPerMeter);
+      const scalePx = scaleMeters * params.pixelsPerMeter;
+      const marginX = 25;
+      const marginY = canvas.height - 25;
+      
+      ctx.save();
+      ctx.fillStyle = 'rgba(15, 15, 20, 0.85)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(marginX - 10, marginY - 30, scalePx + 20, 42, 6);
+      ctx.fill();
+      ctx.stroke();
+      
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(marginX, marginY - 10);
+      ctx.lineTo(marginX, marginY - 2);
+      ctx.lineTo(marginX + scalePx, marginY - 2);
+      ctx.lineTo(marginX + scalePx, marginY - 10);
+      ctx.stroke();
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px Inter';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(`${scaleMeters}m`, marginX + (scalePx / 2), marginY - 13);
+      ctx.restore();
+    }
+
+  }, [imageSrc, buildings, verandas, currentPolygon, currentLineStart, mousePos, result, params, manualEquipments, mode]);
 
   return (
     <div className="flex h-screen bg-bg-main text-text-primary font-sans">
@@ -1116,6 +1496,76 @@ export default function App() {
             >
               <X className="w-3.5 h-3.5" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {rulerLine && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 min-h-screen">
+          <div className="w-[440px] bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl p-5 overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex items-center space-x-3 border-b border-zinc-900 pb-3 mb-4">
+              <div className="p-2 bg-red-500/10 rounded-lg text-red-500">
+                <Ruler className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">스케일 보정 (Ruler Calibration)</h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">그린 선의 길이 정보를 통해 정밀한 축척(Scale)을 설정합니다.</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 bg-zinc-900/60 p-3 rounded-lg border border-zinc-800/50">
+                <div className="text-left">
+                  <span className="text-[10px] text-gray-500 block uppercase">Drawn Vector Length</span>
+                  <span className="text-sm font-mono font-bold text-[#ff3d00] mt-1 block">
+                    {Math.round(Math.sqrt((rulerLine.end.x - rulerLine.start.x)**2 + (rulerLine.end.y - rulerLine.start.y)**2))} px
+                  </span>
+                </div>
+                <div className="text-left">
+                  <span className="text-[10px] text-gray-500 block uppercase">Current Scale</span>
+                  <span className="text-sm font-mono font-bold text-sky-400 mt-1 block">
+                    {params.pixelsPerMeter} Pix / m
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-left space-y-1.5">
+                <label className="text-xs text-gray-300 font-semibold block">방금 지도/이미지에 표시한 선의 실제 길이(m)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="any"
+                    value={rulerInputMeters}
+                    onChange={(e) => setRulerInputMeters(e.target.value)}
+                    className="w-full px-3 py-2 bg-zinc-900/90 border border-zinc-800 rounded-lg text-sm text-white focus:outline-none focus:border-red-500 font-mono"
+                    placeholder="예: 50"
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleApplyRulerCalibration(); }}
+                    autoFocus
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-bold">미터 (m)</span>
+                </div>
+                <p className="text-[10px] text-gray-400 leading-normal mt-1">
+                  💡 <strong>팁</strong>: 업로드한 지도 캡처 이미지 구석의 축적선(Scale Bar, 예: 50m) 양끝을 클릭한 뒤, 입력란에 축척 숫자를 기입하시면 오차없이 가장 정밀한 시뮬레이션 결과가 도출됩니다.
+                </p>
+              </div>
+
+              <div className="flex space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setRulerLine(null); setMode('idle'); }}
+                  className="flex-1 py-2 bg-zinc-900 hover:bg-zinc-800 text-xs text-gray-400 hover:text-white rounded-lg transition-all border border-zinc-800 hover:border-zinc-700 cursor-pointer"
+                >
+                  취소 (Cancel)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplyRulerCalibration}
+                  className="flex-1 py-1.5 bg-red-600 hover:bg-red-500 text-xs text-white rounded-lg font-bold transition-all hover:shadow-[0_0_15px_rgba(239,68,68,0.35)] cursor-pointer"
+                >
+                  보정 적용 (Set Scale)
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1220,33 +1670,11 @@ export default function App() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-1.5">
-                  <div>
-                    <label className="text-[10px] text-text-secondary block mb-0.5">조회 레이어</label>
-                    <select 
-                      value={searchLayer} 
-                      onChange={e => setSearchLayer(e.target.value as any)} 
-                      className="w-full px-1.5 py-1 bg-bg-accent border border-border-color rounded text-[11px] text-white focus:outline-none"
-                    >
-                      <option value="LT_C_SPBD">도로명건물 (SPBD)</option>
-                      <option value="LT_C_BLDINFO">건축물정보 (BLD)</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-col justify-end">
-                    <label className="flex items-center space-x-1.5 cursor-pointer py-1">
-                      <input 
-                        type="checkbox" 
-                        checked={useNameFilter} 
-                        onChange={e => setUseNameFilter(e.target.checked)} 
-                        className="rounded bg-bg-accent border-border-color text-accent w-3 h-3"
-                      />
-                      <span className="text-[10px] text-text-secondary whitespace-nowrap">단지명 동 필터ing</span>
-                    </label>
-                  </div>
-                </div>
-
                 <div className="pt-1">
-                  <label className="text-[10px] text-text-secondary block mb-0.5">아파트 단지명 검색</label>
+                  <div className="flex justify-between items-center mb-0.5">
+                    <label className="text-[10px] text-text-secondary block">아파트 단지명 자동 매칭 검색</label>
+                    <span className="text-[9px] text-gray-500 font-mono">도로명건물 (LT_C_SPBD) 자동 사용</span>
+                  </div>
                   <div className="flex space-x-1">
                     <input 
                       type="text" 
@@ -1258,60 +1686,31 @@ export default function App() {
                     />
                     <button 
                       onClick={handleVWorldSearch} 
-                      disabled={searchStatus === 'searching'} 
+                      disabled={isSearching} 
                       className="px-2.5 bg-accent text-black rounded text-xs hover:bg-[#00e5ff]/90 transition-colors flex items-center justify-center cursor-pointer"
                     >
-                      검색
+                      검색 및 로드
                     </button>
                   </div>
                 </div>
               </div>
 
               {/* Status and Candidates list */}
-              {searchStatus === 'searching' && (
-                <div className="text-[11px] text-accent flex items-center justify-center py-1 bg-bg-accent/30 rounded">
-                  <RotateCcw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> 단지 대표위치 검색 중...
+              {isSearching && (
+                <div className="text-[11px] text-accent flex items-center justify-center py-1 bg-bg-accent/30 rounded mt-2">
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> 단지 데이터 검색 및 가져오는 중...
                 </div>
               )}
 
-              {searchStatus === 'no_result' && (
-                <div className="text-[11px] text-warning text-center py-1 bg-bg-accent/30 rounded">
-                  검색 결과가 없습니다.
-                </div>
-              )}
-
-              {searchStatus === 'error' && (
-                <div className="text-[10px] text-red-400 p-1.5 bg-red-950/20 rounded border border-red-900/30 font-mono break-all leading-tight">
+              {errorMessage && !isSearching && (
+                <div className="text-[10px] text-red-400 p-1.5 bg-red-950/20 rounded border border-red-900/30 font-mono break-all leading-tight mt-2">
                   {errorMessage}
                 </div>
               )}
 
               {isFetchingPolygons && (
-                <div className="text-[11px] text-warning flex items-center justify-center py-1.5 bg-bg-accent/30 rounded border border-warning/10 animate-pulse">
+                <div className="text-[11px] text-warning flex items-center justify-center py-1.5 bg-bg-accent/30 rounded border border-warning/10 animate-pulse mt-2">
                   <RotateCcw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> 단지 건물 폴리곤 다운로드 중...
-                </div>
-              )}
-
-              {searchCandidates.length > 0 && searchStatus === 'success' && (
-                <div className="space-y-1.5 pt-1.5 border-t border-zinc-800">
-                  <span className="text-[10px] text-text-secondary font-semibold block mb-1">검색 결과 ({searchCandidates.length}):</span>
-                  <div className="max-h-36 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                    {searchCandidates.map((c, idx) => (
-                      <button 
-                        key={idx} 
-                        onClick={() => handleSelectCandidate(c)}
-                        disabled={isFetchingPolygons}
-                        className="w-full text-left p-1.5 bg-zinc-900 border border-zinc-800 rounded hover:border-accent hover:bg-zinc-800/80 transition-all text-[11px] line-clamp-2 block group cursor-pointer"
-                      >
-                        <div className="font-bold text-white group-hover:text-accent transition-colors truncate">
-                          {stripHtml(c.title)}
-                        </div>
-                        <div className="text-[9px] text-gray-400 truncate">
-                          {c.address?.road || c.address?.parcel || '주소 정보 없음'}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )}
             </div>
@@ -1342,18 +1741,25 @@ export default function App() {
                 <span className="text-[10px] font-medium text-center leading-tight">2nd 베란다</span>
               </button>
               <button 
+                onClick={() => setMode('equipment')}
+                className={`flex flex-col items-center p-2 rounded border ${mode === 'equipment' ? 'bg-bg-accent border-[#ffb300] text-[#ffb300]' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
+              >
+                <RadioTower className="w-4.5 h-4.5 mb-1" />
+                <span className="text-[10px] font-medium text-center leading-tight">Place Site</span>
+              </button>
+              <button 
+                onClick={() => setMode('ruler')}
+                className={`flex flex-col items-center p-2 rounded border ${mode === 'ruler' ? 'bg-bg-accent border-[#ff3d00] text-[#ff3d00]' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
+              >
+                <Ruler className="w-4.5 h-4.5 mb-1" />
+                <span className="text-[10px] font-medium text-center leading-tight">스케일 보정</span>
+              </button>
+              <button 
                 onClick={() => setMode('eraser')}
                 className={`flex flex-col items-center p-2 rounded border ${mode === 'eraser' ? 'bg-bg-accent border-error text-error' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
               >
                 <Eraser className="w-4.5 h-4.5 mb-1" />
                 <span className="text-[10px] font-medium text-center leading-tight">Eraser</span>
-              </button>
-              <button 
-                onClick={() => setMode('equipment')}
-                className={`flex flex-col items-center p-2 rounded border ${mode === 'equipment' ? 'bg-bg-accent border-[#ffb300] text-[#ffb300]' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'} col-span-2`}
-              >
-                <RadioTower className="w-4.5 h-4.5 mb-1" />
-                <span className="text-[10px] font-medium text-center leading-tight">Place Site</span>
               </button>
             </div>
             <p className="text-xs text-text-secondary mt-2">
@@ -1361,6 +1767,7 @@ export default function App() {
               {mode === 'veranda' && "Click start and end points to draw a standard (1등급) veranda."}
               {mode === 'second_veranda' && "Click start and end points to draw a second (2등급, 70% 가중치) veranda."}
               {mode === 'equipment' && "Click on the map/building edges to place a co-located 3-sector site."}
+              {mode === 'ruler' && "지도 축척선(Scale bar)의 양끝을 클릭하여 선을 그린 뒤 실제 거리를 입력하세요!"}
               {mode === 'eraser' && "Click on a building, veranda, or site to remove it."}
               {mode === 'idle' && "Select a tool to start drawing."}
             </p>

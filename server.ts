@@ -8,15 +8,18 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Helper to fetch using Node's standard stable legacy agent with HTTP/HTTPS fallback, bypassing TLS issues and keepalive drops.
-function robustGet(targetUrl: string): Promise<string> {
-  // Let's parse and normalize the URL first to remove raw leading/trailing whitespaces from parameters (critical to avoid socket hang ups!)
+// Helper to fetch using Node's standard native fetch first (robustly handling encoding/compression and keepalives), with HTTP/HTTPS legacy fallback.
+async function robustGet(targetUrl: string): Promise<string> {
   let normalizedUrl = targetUrl.trim();
+  let domainRef = "";
   try {
     const parsed = new URL(normalizedUrl);
     const cleanedParams = new URLSearchParams();
     parsed.searchParams.forEach((value, name) => {
       cleanedParams.set(name.trim(), value.trim());
+      if (name.trim().toLowerCase() === "domain") {
+        domainRef = value.trim();
+      }
     });
     parsed.search = cleanedParams.toString();
     normalizedUrl = parsed.toString();
@@ -24,6 +27,37 @@ function robustGet(targetUrl: string): Promise<string> {
     console.error("Failed to normalize URL:", err.message);
   }
 
+  const headers: Record<string, string> = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+  };
+  if (domainRef) {
+    headers["Referer"] = domainRef;
+    headers["Origin"] = domainRef.replace(/\/$/, "");
+  }
+
+  // 1. Try native Node fetch first
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const response = await fetch(normalizedUrl, {
+      method: "GET",
+      headers,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (response.ok) {
+      const text = await response.text();
+      return text;
+    } else {
+      const errText = await response.text();
+      throw new Error(`Status ${response.status}: ${errText.substring(0, 200)}`);
+    }
+  } catch (nativeErr: any) {
+    console.warn(`Native fetch in server proxy failed/timed out, falling back to legacy agent: ${nativeErr.message}`);
+  }
+
+  // 2. Fallback to raw manual agent
   const fetchWithProtocol = (urlStr: string, useHttps: boolean): Promise<string> => {
     return new Promise((resolve, reject) => {
       let finished = false;
@@ -48,8 +82,7 @@ function robustGet(targetUrl: string): Promise<string> {
           path: parsedUrl.pathname + parsedUrl.search,
           method: "GET",
           headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json, text/plain, */*",
+            ...headers,
             "Connection": "close"
           },
           timeout: 10000,
@@ -180,9 +213,10 @@ ${equipmentData}
         const json = JSON.parse(text);
         res.json(json);
       } catch {
-        // If not JSON, send it as plain text/xml/html
-        res.header("Content-Type", "text/plain; charset=utf-8");
-        res.send(text);
+        // If not JSON, try to extract error from XML
+        const match = text.match(/<text>([\s\S]*?)<\/text>/i) || text.match(/<message>([\s\S]*?)<\/message>/i);
+        const errMsg = match ? match[1].trim() : text.substring(0, 200);
+        res.status(400).json({ error: `VWorld API Error: ${errMsg}` });
       }
     } catch (err: any) {
       console.error(err);
