@@ -1135,10 +1135,10 @@ export default function App() {
         else ctx.lineTo(p.x, p.y);
       });
       ctx.closePath();
-      ctx.fillStyle = 'rgba(0, 150, 255, 0.4)';
+      ctx.fillStyle = 'rgba(51, 65, 85, 0.4)'; // Slate 700 with opacity
       ctx.fill();
-      ctx.strokeStyle = '#00e5ff';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#1e293b'; // Slate 800
+      ctx.lineWidth = 1.5;
       ctx.stroke();
 
       // Render per-building coverage logic
@@ -1822,7 +1822,7 @@ export default function App() {
           </section>
 
           <section>
-             <h2 className="text-xs font-semibold text-text-secondary mb-2 uppercase tracking-[1.5px] border-b border-border-color pb-1">4. Manual Nodes ({manualEquipments.length})</h2>
+             <h2 className="text-xs font-semibold text-text-secondary mb-2 uppercase tracking-[1.5px] border-b border-border-color pb-1">4. Manual Nodes ({new Set(manualEquipments.map(e => e.id.substring(0, e.id.lastIndexOf('-')))).size} 장비, {manualEquipments.length} 섹터)</h2>
              {manualEquipments.length === 0 && <p className="text-xs text-text-secondary italic">No manual nodes placed.</p>}
              <div className="space-y-2">
                {manualEquipments.map((eq) => (
@@ -1866,8 +1866,8 @@ export default function App() {
               <div className="p-3 bg-bg-accent border-l-4 border-accent rounded">
                 <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-[1.5px] mb-2">Results</h3>
                 <div className="flex justify-between text-sm mb-1 pb-0.5">
-                  <span className="text-text-secondary text-xs uppercase">Equipments:</span>
-                  <span className="font-bold text-white font-mono text-lg">{result.equipments.length.toString().padStart(2, '0')}</span>
+                  <span className="text-text-secondary text-xs uppercase">장비 (섹터) 수:</span>
+                  <span className="font-bold text-white font-mono text-lg">{new Set(result.equipments.map((e: any) => e.id.substring(0, e.id.lastIndexOf('-')))).size} ({result.equipments.length})</span>
                 </div>
                 <div className="flex justify-between text-sm mb-1.5">
                   <span className="text-text-secondary text-xs uppercase">1st 베란다 커버리지 (모수):</span>
@@ -1946,7 +1946,7 @@ export default function App() {
                     width: canvasSize.width,
                     height: canvasSize.height
                 }}
-                className={`${mode !== 'idle' ? 'cursor-crosshair' : 'cursor-default'} opacity-80 absolute top-0 left-0 bg-[#0a0a0a]`}
+                className={`${mode !== 'idle' ? 'cursor-crosshair' : 'cursor-default'} absolute top-0 left-0 bg-[#f8f9fa] shadow-inner`}
               />
             </div>
           )}

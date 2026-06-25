@@ -1,0 +1,47 @@
+3:import { Point, Line, Polygon, SimulationParams, SimulationResult, Equipment } from './types';
+133:  const [verandas, setVerandas] = useState<Line[]>([]);
+138:  const [currentLineStart, setCurrentLineStart] = useState<Point | null>(null);
+141:  const [rulerLine, setRulerLine] = useState<{ start: Point; end: Point } | null>(null);
+334:      if (!currentLineStart) {
+335:        setCurrentLineStart(p);
+337:        setRulerLine({ start: currentLineStart, end: p });
+338:        setCurrentLineStart(null);
+341:      if (!currentLineStart) {
+342:        setCurrentLineStart(p);
+344:        setVerandas([...verandas, { start: currentLineStart, end: p }]);
+345:        setCurrentLineStart(null);
+348:      if (!currentLineStart) {
+349:        setCurrentLineStart(p);
+351:        setVerandas([...verandas, { start: currentLineStart, end: p, isSecond: true }]);
+352:        setCurrentLineStart(null);
+415:      setCurrentLineStart(null);
+429:    if (!rulerLine) return;
+430:    const dx = rulerLine.end.x - rulerLine.start.x;
+431:    const dy = rulerLine.end.y - rulerLine.start.y;
+440:    setRulerLine(null);
+450:    setCurrentLineStart(null);
+982:    // 2. Export Verandas as a single MultiLineString feature
+992:          name: "베란다 MultiLine"
+995:          type: "MultiLineString",
+1190:      ctx.setLineDash([8, 8]);
+1193:      ctx.setLineDash([]);
+1205:      ctx.setLineDash([5, 5]);
+1207:      ctx.setLineDash([]);
+1218:        ctx.setLineDash([5, 5]);
+1220:        ctx.setLineDash([]);
+1229:    if (currentLineStart && mousePos) {
+1231:      ctx.moveTo(currentLineStart.x, currentLineStart.y);
+1237:        ctx.setLineDash([5, 5]);
+1239:        ctx.setLineDash([]);
+1244:        ctx.setLineDash([6, 4]);
+1246:        ctx.setLineDash([]);
+1249:        ctx.arc(currentLineStart.x, currentLineStart.y, 4.5, 0, Math.PI * 2);
+1253:        const dx = mousePos.x - currentLineStart.x;
+1254:        const dy = mousePos.y - currentLineStart.y;
+1276:        ctx.setLineDash([8, 8]);
+1278:        ctx.setLineDash([]);
+1330:      // 2. Draw Connection Lines (faint beam stream lines)
+1467:  }, [imageSrc, buildings, verandas, currentPolygon, currentLineStart, mousePos, result, params, manualEquipments, mode]);
+1503:      {rulerLine && (
+1521:                    {Math.round(Math.sqrt((rulerLine.end.x - rulerLine.start.x)**2 + (rulerLine.end.y - rulerLine.start.y)**2))} px
+1555:                  onClick={() => { setRulerLine(null); setMode('idle'); }}

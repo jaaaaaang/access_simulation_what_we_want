@@ -162,10 +162,13 @@ async function startServer() {
       let buildingData = result.buildingCoverages?.map((bc: any) => `- 건물 ${bc.bIdx + 1}: ${bc.ratio.toFixed(0)}% (커버됨 ${bc.covered}m / 총 ${bc.total}m)`).join('\n') || '없음';
       let equipmentData = result.logs.map((log: any) => `- 장비 ${log.id}: ${log.coveredCount}m 커버 (전파 Score: ${log.score.toFixed(1)}, 평균 품질 효율: ${((log.score / log.coveredCount) * 100 || 0).toFixed(1)}%)`).join('\n') || '없음';
 
+      const uniqueEquipmentsCount = new Set((result.equipments || []).map((e: any) => e.id.substring(0, e.id.lastIndexOf('-')))).size;
+      const sectorCount = (result.equipments || []).length;
+
       const prompt = `당신은 통신 RF 플래닝 전문가입니다. 건물 베란다(창문)를 커버하기 위한 국소 장비 위치 배치 알고리즘 시뮬레이션의 최신 결과를 분석해주세요.
           
 - 전체 커버리지: ${result.coverageRatio.toFixed(1)}% (목표치: ${params.targetCoverage}%)
-- 배치된 장비 수: ${result.equipments.length} 개
+- 배치된 장비 수: ${uniqueEquipmentsCount}개 (총 ${sectorCount}개 섹터)
 - 건물별 커버리지 현황:
 ${buildingData}
 - 개별 장비 스펙 및 효율 수치 (Score/Meters = 평균 품질 효율%):

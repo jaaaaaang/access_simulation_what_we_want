@@ -248,7 +248,7 @@ export function runSimulation(
            }
         });
         line.bIdx = bestBIdx;
-        line.isSecond = false;
+        // line.isSecond = false; // preserve user's drawn type
 
         const dx = line.end.x - line.start.x;
         const dy = line.end.y - line.start.y;
