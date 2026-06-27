@@ -1,4 +1,4 @@
-export type Point = { x: number; y: number };
+export type Point = { x: number; y: number; centerFactor?: number; isCandidate?: boolean; edgeLength?: number };
 export type Line = { start: Point; end: Point; bIdx?: number; normal?: Point; isSecond?: boolean };
 export type Polygon = Point[];
 export type Equipment = { id: string; x: number; y: number; angle: number; bIdx?: number; coveredPoints?: Point[]; isManual?: boolean };
@@ -9,6 +9,7 @@ export type SimulationParams = {
   targetCoverage: number;
   pixelsPerMeter: number;
   strictCoLocation: boolean;
+  preventAutoSectors?: boolean;
 };
 
 export type LogEntry = {

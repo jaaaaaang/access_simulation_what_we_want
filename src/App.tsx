@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Square, Minus, Play, RotateCcw, Image as ImageIcon, Terminal, Database, Search, ZoomIn, ZoomOut, RadioTower, Check, Sparkles, Download, Eraser, Save, FolderOpen, X, AlertTriangle, Info, Ruler, Undo, Redo, Trash2 } from 'lucide-react';
 import { Point, Line, Polygon, SimulationParams, SimulationResult, Equipment } from './types';
-import { runSimulation, pointInPolygon, snapToPolygonEdge, getSecondVerandas } from './lib/simulation';
+import { runSimulation, pointInPolygon, snapToPolygonEdge, getSecondVerandas, distToPolygon, evaluateRay } from './lib/simulation';
 import { sampleBuildings, sampleVerandas } from './lib/sampleData';
 // @ts-ignore
 import * as shp from 'shpjs';
@@ -192,7 +192,15 @@ export default function App() {
   
   const [rulerLine, setRulerLine] = useState<{ start: Point; end: Point } | null>(null);
   const [rulerInputMeters, setRulerInputMeters] = useState<string>('50');
-  const [hoveredBuildingArea, setHoveredBuildingArea] = useState<{ x: number, y: number, areaM2: number, name: string } | null>(null);
+  const [hoveredBuildingArea, setHoveredBuildingArea] = useState<{ 
+    x: number; 
+    y: number; 
+    areaM2: number; 
+    name: string;
+    bIdx?: number;
+    coverageRatio?: number;
+    secondCovered?: number;
+  } | null>(null);
 
   const calculatePolygonArea = (poly: Polygon) => {
     let area = 0;
@@ -205,9 +213,9 @@ export default function App() {
   };
   
   const [params, setParams] = useState<SimulationParams>({
-    beamWidth: 60,
+    beamWidth: 65,
     maxRange: 150,
-    targetCoverage: 65,
+    targetCoverage: 60,
     pixelsPerMeter: 2,
     strictCoLocation: true
   });
@@ -218,6 +226,7 @@ export default function App() {
   const [canvasSize, setCanvasSize] = useState({width: 1000, height: 1000});
   
   const [aiInsights, setAiInsights] = useState<string | null>(null);
+  const [showInterference, setShowInterference] = useState<boolean>(true); // default to true so users see it immediately when active!
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
 
@@ -244,6 +253,7 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isFetchingPolygons, setIsFetchingPolygons] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -497,7 +507,26 @@ export default function App() {
     if (foundBIdx !== -1) {
       const pxArea = calculatePolygonArea(buildings[foundBIdx]);
       const areaM2 = pxArea / (params.pixelsPerMeter ** 2);
-      setHoveredBuildingArea({ x: e.clientX, y: e.clientY, areaM2, name: `건물_${foundBIdx + 1}동` });
+      
+      let coverageRatio: number | undefined = undefined;
+      let secondCovered: number | undefined = undefined;
+      if (result && result.buildingCoverages) {
+        const bCov = result.buildingCoverages.find((bc: any) => bc.bIdx === foundBIdx);
+        if (bCov) {
+          coverageRatio = bCov.ratio;
+          secondCovered = bCov.secondCovered;
+        }
+      }
+
+      setHoveredBuildingArea({ 
+        x: e.clientX, 
+        y: e.clientY, 
+        areaM2, 
+        name: `건물_${foundBIdx + 1}동`,
+        bIdx: foundBIdx,
+        coverageRatio,
+        secondCovered
+      });
     } else {
       setHoveredBuildingArea(null);
     }
@@ -1167,6 +1196,509 @@ export default function App() {
       setResult(null);
       setAiInsights(null);
   };
+
+  const getOptimalManualCalibrations = () => {
+    if (buildings.length === 0 || verandas.length === 0 || manualEquipments.length === 0) return [];
+    
+    const sampleStep = 4.0;
+    type TempSample = Point & { line: Line };
+    const tempSamples: TempSample[] = [];
+
+    // Clone verandas and divide them strictly into 1st and 2nd verandas drawn by the user
+    const firstVerandas = verandas.filter(v => !v.isSecond).map(v => ({ ...v, start: { ...v.start }, end: { ...v.end } }));
+    const userSecondVerandas = verandas.filter(v => v.isSecond).map(v => ({ ...v, start: { ...v.start }, end: { ...v.end } }));
+
+    const buildingsWithFirstVeranda = new Set<number>();
+    firstVerandas.forEach(line => {
+        let minD = Infinity;
+        let bestBIdx = -1;
+        const midPoint = { x: (line.start.x + line.end.x)/2, y: (line.start.y + line.end.y)/2 };
+        buildings.forEach((b, bIdx) => {
+           const d = distToPolygon(midPoint, b);
+           if (d < minD) { minD = d; bestBIdx = bIdx; }
+        });
+        if (bestBIdx !== -1) buildingsWithFirstVeranda.add(bestBIdx);
+    });
+
+    const autoSecondVerandas = getSecondVerandas(buildings).filter(line => 
+        line.bIdx !== undefined && buildingsWithFirstVeranda.has(line.bIdx)
+    );
+    const secondVerandas = [...userSecondVerandas, ...autoSecondVerandas];
+
+    // Precalculate normals and push samples for 1st verandas
+    firstVerandas.forEach((line) => {
+        let minD = Infinity;
+        let bestBIdx = -1;
+        const midPoint = { x: (line.start.x + line.end.x)/2, y: (line.start.y + line.end.y)/2 };
+        
+        buildings.forEach((b, bIdx) => {
+           const d = distToPolygon(midPoint, b);
+           if (d < minD) {
+               minD = d;
+               bestBIdx = bIdx;
+           }
+        });
+        line.bIdx = bestBIdx;
+        
+        if (bestBIdx !== -1) {
+            const poly = buildings[bestBIdx];
+            let minWallDist = Infinity;
+            let normalVec = { x: 0, y: 0 };
+            
+            for (let i = 0; i < poly.length; i++) {
+                const v = poly[i];
+                const w = poly[(i + 1) % poly.length];
+                const len = Math.sqrt((w.x - v.x)**2 + (w.y - v.y)**2);
+                if (len < 0.001) continue;
+                
+                const t = Math.max(0, Math.min(1, ((midPoint.x - v.x) * (w.x - v.x) + (midPoint.y - v.y) * (w.y - v.y)) / (len * len)));
+                const proj = { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) };
+                const dSqr = Math.pow(midPoint.x - proj.x, 2) + Math.pow(midPoint.y - proj.y, 2);
+                
+                if (dSqr < minWallDist) {
+                    minWallDist = dSqr;
+                    const dx = (w.x - v.x) / len;
+                    const dy = (w.y - v.y) / len;
+                    
+                    const possibleNormal = { x: -dy, y: dx };
+                    const testP = { x: midPoint.x + possibleNormal.x * 2, y: midPoint.y + possibleNormal.y * 2 };
+                    if (!pointInPolygon(testP, poly)) {
+                        normalVec = possibleNormal;
+                    } else {
+                        normalVec = { x: dy, y: -dx };
+                    }
+                }
+            }
+            line.normal = normalVec;
+        }
+
+        const l_len = Math.sqrt((line.end.x - line.start.x)**2 + (line.end.y - line.start.y)**2);
+        const steps = Math.ceil(l_len / sampleStep);
+        for (let i = 0; i < steps; i++) {
+            const t = steps === 0 ? 0 : i / steps;
+            tempSamples.push({
+                x: line.start.x + (line.end.x - line.start.x) * t,
+                y: line.start.y + (line.end.y - line.start.y) * t,
+                line: line
+            });
+        }
+    });
+
+    // Precalculate normals and push samples for 2nd verandas (User drawn)
+    secondVerandas.forEach((line) => {
+        let minD = Infinity;
+        let bestBIdx = -1;
+        const midPoint = { x: (line.start.x + line.end.x)/2, y: (line.start.y + line.end.y)/2 };
+        
+        buildings.forEach((b, bIdx) => {
+           const d = distToPolygon(midPoint, b);
+           if (d < minD) {
+               minD = d;
+               bestBIdx = bIdx;
+           }
+        });
+        line.bIdx = bestBIdx;
+        
+        if (bestBIdx !== -1) {
+            const poly = buildings[bestBIdx];
+            let minWallDist = Infinity;
+            let normalVec = { x: 0, y: 0 };
+            
+            for (let i = 0; i < poly.length; i++) {
+                const v = poly[i];
+                const w = poly[(i + 1) % poly.length];
+                const len = Math.sqrt((w.x - v.x)**2 + (w.y - v.y)**2);
+                if (len < 0.001) continue;
+                
+                const t = Math.max(0, Math.min(1, ((midPoint.x - v.x) * (w.x - v.x) + (midPoint.y - v.y) * (w.y - v.y)) / (len * len)));
+                const proj = { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) };
+                const dSqr = Math.pow(midPoint.x - proj.x, 2) + Math.pow(midPoint.y - proj.y, 2);
+                
+                if (dSqr < minWallDist) {
+                    minWallDist = dSqr;
+                    const dx = (w.x - v.x) / len;
+                    const dy = (w.y - v.y) / len;
+                    
+                    const possibleNormal = { x: -dy, y: dx };
+                    const testP = { x: midPoint.x + possibleNormal.x * 2, y: midPoint.y + possibleNormal.y * 2 };
+                    if (!pointInPolygon(testP, poly)) {
+                        normalVec = possibleNormal;
+                    } else {
+                        normalVec = { x: dy, y: -dx };
+                    }
+                }
+            }
+            line.normal = normalVec;
+        }
+
+        const l_len = Math.sqrt((line.end.x - line.start.x)**2 + (line.end.y - line.start.y)**2);
+        const steps = Math.ceil(l_len / sampleStep);
+        for (let i = 0; i < steps; i++) {
+            const t = steps === 0 ? 0 : i / steps;
+            tempSamples.push({
+                x: line.start.x + (line.end.x - line.start.x) * t,
+                y: line.start.y + (line.end.y - line.start.y) * t,
+                line: line
+            });
+        }
+    });
+
+    // Group manual equipments by pole location to optimize co-located sectors
+    interface GroupedEquipment {
+      eq: Equipment;
+      bestAngle: number;
+    }
+    
+    const poleGroups = new Map<string, GroupedEquipment[]>();
+    manualEquipments.forEach((eq) => {
+      const key = `${Math.round(eq.x)},${Math.round(eq.y)}`;
+      if (!poleGroups.has(key)) {
+        poleGroups.set(key, []);
+      }
+      poleGroups.get(key)!.push({
+        eq,
+        bestAngle: eq.angle
+      });
+    });
+
+    // Co-located Site Bundle Rotation Optimization
+    poleGroups.forEach((group) => {
+      const N = group.length;
+      if (N === 0) return;
+
+      const numSamples = tempSamples.length;
+      const bIndices = new Int32Array(numSamples);
+      for (let s = 0; s < numSamples; s++) {
+        bIndices[s] = tempSamples[s].line.bIdx !== undefined ? tempSamples[s].line.bIdx! : -1;
+      }
+
+      // Precalculate scores for all 360 angles for each equipment in this group
+      // scoreMatrix[i][angle * numSamples + s]
+      const scoreMatrix = group.map(g => {
+        const mat = new Float32Array(360 * numSamples);
+        for (let a = 0; a < 360; a++) {
+          for (let s = 0; s < numSamples; s++) {
+            const rs = evaluateRay(g.eq, a, tempSamples[s], params, buildings);
+            if (rs > 0.05) {
+              mat[a * numSamples + s] = rs;
+            }
+          }
+        }
+        return mat;
+      });
+
+      let bestSingleSectorScore = 0;
+      for (let a = 0; a < 360; a++) {
+        for (let i = 0; i < N; i++) {
+          const bScores = new Map<number, number>();
+          for (let s = 0; s < numSamples; s++) {
+            const rs = scoreMatrix[i][a * numSamples + s];
+            if (rs > 0) {
+              const bIdx = bIndices[s];
+              if (bIdx !== -1) {
+                bScores.set(bIdx, (bScores.get(bIdx) || 0) + rs);
+              }
+            }
+          }
+          for (const score of bScores.values()) {
+            if (score > bestSingleSectorScore) bestSingleSectorScore = score;
+          }
+        }
+      }
+
+      let candidateAngles: { angles: number[], jointScore: number, maxSingleScore: number }[] = [];
+
+      // We do a coarse search (every 5 degrees) to find good candidates, 
+      // then we can do a fine search, or just do 5 degrees if N is large.
+      // If N=1: 360 steps (1 deg)
+      // If N=2: 360 * 360 is 129600. We can do 2-degree steps (180*180 = 32400)
+      // If N=3: 36^3 = 46656 (10-deg steps), then fine search.
+      
+      const step = N === 1 ? 1 : (N === 2 ? 3 : 10);
+      const candidatesToFineSearch = [];
+
+      for (let a0 = 0; a0 < 360; a0 += step) {
+        for (let a1 = 0; a1 < (N > 1 ? 360 : 1); a1 += step) {
+          if (N > 1) {
+            let diff = Math.abs(a0 - a1);
+            diff = diff > 180 ? 360 - diff : diff;
+            if (diff < 60) continue;
+          }
+          for (let a2 = 0; a2 < (N > 2 ? 360 : 1); a2 += step) {
+            if (N > 2) {
+              let diff1 = Math.abs(a0 - a2);
+              diff1 = diff1 > 180 ? 360 - diff1 : diff1;
+              let diff2 = Math.abs(a1 - a2);
+              diff2 = diff2 > 180 ? 360 - diff2 : diff2;
+              if (diff1 < 60 || diff2 < 60) continue;
+            }
+
+            let jointScore = 0;
+            const bScores = new Map<number, number>();
+
+            for (let s = 0; s < numSamples; s++) {
+              let maxVal = scoreMatrix[0][a0 * numSamples + s];
+              if (N > 1) {
+                const v1 = scoreMatrix[1][a1 * numSamples + s];
+                if (v1 > maxVal) maxVal = v1;
+              }
+              if (N > 2) {
+                const v2 = scoreMatrix[2][a2 * numSamples + s];
+                if (v2 > maxVal) maxVal = v2;
+              }
+
+              if (maxVal > 0) {
+                jointScore += maxVal;
+                const bIdx = bIndices[s];
+                if (bIdx !== -1) {
+                  bScores.set(bIdx, (bScores.get(bIdx) || 0) + maxVal);
+                }
+              }
+            }
+
+            let maxSingleScore = 0;
+            for (const score of bScores.values()) {
+              if (score > maxSingleScore) maxSingleScore = score;
+            }
+
+            if (jointScore > 0) {
+              candidatesToFineSearch.push({
+                angles: [a0, a1, a2].slice(0, N),
+                jointScore,
+                maxSingleScore
+              });
+            }
+          }
+        }
+      }
+
+      // Fine search around the best candidate if step > 1
+      if (step > 1 && candidatesToFineSearch.length > 0) {
+        const thresholdX = bestSingleSectorScore * 0.15;
+        const validCoarse = candidatesToFineSearch.filter(c => bestSingleSectorScore - c.maxSingleScore <= thresholdX);
+        
+        // Sort by joint score to find the best valid coarse candidate
+        const candidatesToUse = validCoarse.length > 0 ? validCoarse : candidatesToFineSearch;
+        candidatesToUse.sort((a, b) => b.jointScore - a.jointScore);
+        const bestCoarse = candidatesToUse[0];
+        
+        let bestFineAngles = [...bestCoarse.angles];
+        let bestFineJoint = bestCoarse.jointScore;
+        let bestFineMaxSingle = bestCoarse.maxSingleScore;
+
+        const fineRange = step;
+        
+        const a0Start = bestCoarse.angles[0] - fineRange;
+        const a0End = bestCoarse.angles[0] + fineRange;
+        
+        for (let fa0 = a0Start; fa0 <= a0End; fa0++) {
+          const a0 = (fa0 + 360) % 360;
+          const a1Start = N > 1 ? bestCoarse.angles[1] - fineRange : 0;
+          const a1End = N > 1 ? bestCoarse.angles[1] + fineRange : 0;
+          
+          for (let fa1 = a1Start; fa1 <= a1End; fa1++) {
+            const a1 = (fa1 + 360) % 360;
+            if (N > 1) {
+              let diff = Math.abs(a0 - a1);
+              diff = diff > 180 ? 360 - diff : diff;
+              if (diff < 60) continue;
+            }
+            
+            const a2Start = N > 2 ? bestCoarse.angles[2] - fineRange : 0;
+            const a2End = N > 2 ? bestCoarse.angles[2] + fineRange : 0;
+            
+            for (let fa2 = a2Start; fa2 <= a2End; fa2++) {
+              const a2 = (fa2 + 360) % 360;
+              if (N > 2) {
+                let diff1 = Math.abs(a0 - a2);
+                diff1 = diff1 > 180 ? 360 - diff1 : diff1;
+                let diff2 = Math.abs(a1 - a2);
+                diff2 = diff2 > 180 ? 360 - diff2 : diff2;
+                if (diff1 < 60 || diff2 < 60) continue;
+              }
+
+              let jointScore = 0;
+              const bScores = new Map<number, number>();
+
+              for (let s = 0; s < numSamples; s++) {
+                let maxVal = scoreMatrix[0][a0 * numSamples + s];
+                if (N > 1) {
+                  const v1 = scoreMatrix[1][a1 * numSamples + s];
+                  if (v1 > maxVal) maxVal = v1;
+                }
+                if (N > 2) {
+                  const v2 = scoreMatrix[2][a2 * numSamples + s];
+                  if (v2 > maxVal) maxVal = v2;
+                }
+
+                if (maxVal > 0) {
+                  jointScore += maxVal;
+                  const bIdx = bIndices[s];
+                  if (bIdx !== -1) {
+                    bScores.set(bIdx, (bScores.get(bIdx) || 0) + maxVal);
+                  }
+                }
+              }
+
+              let maxSingleScore = 0;
+              for (const score of bScores.values()) {
+                if (score > maxSingleScore) maxSingleScore = score;
+              }
+
+              if (jointScore > 0) {
+                candidateAngles.push({
+                  angles: [a0, a1, a2].slice(0, N),
+                  jointScore,
+                  maxSingleScore
+                });
+              }
+            } // close fa2
+          } // close fa1
+        } // close fa0
+      } else {
+        candidateAngles = candidatesToFineSearch;
+      }
+      
+      const thresholdX = bestSingleSectorScore * 0.15;
+      let bestAngles = group.map(g => g.eq.angle);
+      let bestJointScore = -1;
+
+      for (const cand of candidateAngles) {
+        if (bestSingleSectorScore - cand.maxSingleScore <= thresholdX) {
+          if (cand.jointScore > bestJointScore) {
+            bestJointScore = cand.jointScore;
+            bestAngles = cand.angles;
+          }
+        }
+      }
+
+      // To prevent unneeded reordering of sectors (e.g., A receiving B's angle, making a complete 180 reversal),
+      // we match the optimal angles to the physical equipments in the group such that the sum of absolute angular difference is minimized.
+      const getPermutations = (arr: number[]): number[][] => {
+        if (arr.length === 1) return [arr];
+        const res: number[][] = [];
+        for (let i = 0; i < arr.length; i++) {
+          const current = arr[i];
+          const remaining = arr.slice(0, i).concat(arr.slice(i + 1));
+          const perms = getPermutations(remaining);
+          for (const perm of perms) {
+            res.push([current, ...perm]);
+          }
+        }
+        return res;
+      };
+
+      const permutations = getPermutations(bestAngles);
+      let bestPerm: number[] = bestAngles;
+      let minTotalDiff = Infinity;
+
+      for (const perm of permutations) {
+        let totalDiff = 0;
+        for (let i = 0; i < N; i++) {
+          let diff = Math.abs(group[i].eq.angle - perm[i]);
+          diff = diff > 180 ? 360 - diff : diff;
+          totalDiff += diff;
+        }
+        if (totalDiff < minTotalDiff) {
+          minTotalDiff = totalDiff;
+          bestPerm = perm;
+        }
+      }
+
+      // Assign the optimal matched angles back to the group
+      for (let i = 0; i < N; i++) {
+        group[i].bestAngle = bestPerm[i] !== undefined ? bestPerm[i] : group[i].eq.angle;
+      }
+    });
+
+    // Map optimized recommendations back to individual manualEquipments
+    const recommendations = manualEquipments.map((eq) => {
+      const key = `${Math.round(eq.x)},${Math.round(eq.y)}`;
+      const group = poleGroups.get(key) || [];
+      const match = group.find(g => g.eq.id === eq.id);
+      const recommendedAngle = match ? match.bestAngle : eq.angle;
+
+      // Calculate current score individually
+      let curScore = 0;
+      tempSamples.forEach(s => {
+         const rs = evaluateRay(eq, eq.angle, s, params, buildings);
+         if (rs > 0.05) curScore += rs;
+      });
+
+      // Calculate max score with the recommended angle
+      let maxScore = 0;
+      tempSamples.forEach(s => {
+         const rs = evaluateRay(eq, recommendedAngle, s, params, buildings);
+         if (rs > 0.05) maxScore += rs;
+      });
+
+      const gain = maxScore - curScore;
+      return {
+        id: eq.id,
+        currentAngle: eq.angle,
+        recommendedAngle: recommendedAngle,
+        gain: Math.round(gain * 10), // proportional relative rating
+        currentScore: Math.round(curScore * 10) / 10,
+        maxScore: Math.round(maxScore * 10) / 10,
+        bIdx: eq.bIdx
+      };
+    });
+
+    return recommendations;
+  };
+
+  const applyOptimalCalibrations = () => {
+    const recs = getOptimalManualCalibrations();
+    if (recs.length === 0) return;
+
+    let updated = false;
+    const newManuals = manualEquipments.map((eq) => {
+      const rec = recs.find(r => r.id === eq.id);
+      if (rec && Math.abs(rec.recommendedAngle - eq.angle) > 1) {
+        updated = true;
+        return { ...eq, angle: rec.recommendedAngle };
+      }
+      return eq;
+    });
+
+    if (updated) {
+      setManualEquipments(newManuals);
+      
+      // Update history
+      const nextHistory = historyState.history.slice(0, historyState.index + 1);
+      const nextState = {
+        buildings,
+        verandas,
+        manualEquipments: newManuals,
+        params,
+        imageSrc
+      };
+      setHistoryState({
+        history: [...nextHistory, nextState],
+        index: nextHistory.length
+      });
+
+      // Automatically run evaluation setup to show instant feedback!
+      setTimeout(() => {
+        // Collect all current equipments (manuals updated, auto preserved)
+        const allEquipments = result ? result.equipments.map(eq => {
+          if (eq.isManual) {
+            const rec = recs.find(r => r.id === eq.id);
+            if (rec && Math.abs(rec.recommendedAngle - eq.angle) > 1) {
+              return { ...eq, angle: rec.recommendedAngle };
+            }
+          }
+          return eq;
+        }) : newManuals;
+        
+        const res = runSimulation(buildings, verandas, { ...params, targetCoverage: 0, preventAutoSectors: true }, allEquipments);
+        setResult(res);
+        showAppNotification("모든 안테나의 방위각이 물리적 최대 효율을 내도록 정교하게 교정되었습니다!", "success");
+      }, 50);
+    } else {
+      showAppNotification("이미 모든 안테나가 최고의 효율을 낼 수 있는 물리적 최적 방위각(Optimum)으로 설정되어 있습니다.", "info");
+    }
+  };
   
   const handleGenerateAIInsights = async () => {
       if (!result) return;
@@ -1213,11 +1745,21 @@ export default function App() {
         else ctx.lineTo(p.x, p.y);
       });
       ctx.closePath();
-      ctx.fillStyle = 'rgba(51, 65, 85, 0.4)'; // Slate 700 with opacity
-      ctx.fill();
-      ctx.strokeStyle = '#1e293b'; // Slate 800
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      
+      const isHovered = hoveredBuildingArea && hoveredBuildingArea.bIdx === bIdx;
+      if (isHovered) {
+        ctx.fillStyle = 'rgba(0, 229, 255, 0.22)'; // Glowing blue tint
+        ctx.fill();
+        ctx.strokeStyle = '#00e5ff'; // Cyan active border
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = 'rgba(51, 65, 85, 0.4)'; // Slate 700 with opacity
+        ctx.fill();
+        ctx.strokeStyle = '#1e293b'; // Slate 800
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
 
       // Render per-building coverage logic
       if (result && result.buildingCoverages) {
@@ -1245,7 +1787,7 @@ export default function App() {
               
               if (hasBonus) {
                   ctx.fillText(`${Math.round(bCov.ratio)}%`, cx, cy - 6);
-                  ctx.fillStyle = '#29b6f6';
+                  ctx.fillStyle = '#ff9800';
                   ctx.font = 'bold 9px Inter';
                   ctx.fillText(`+${bCov.secondCovered}m 보너스`, cx, cy + 7);
               } else {
@@ -1271,13 +1813,37 @@ export default function App() {
       ctx.setLineDash([]);
     }
 
-    // Draw Second Verandas (long building walls, dashed blue-cyan)
-    const secondVerandas = getSecondVerandas(buildings);
+    // Identify which buildings have a standard 1st veranda drawn on them
+    const buildingsWithFirstVeranda = new Set<number>();
+    verandas.forEach(line => {
+      if (!line.isSecond) {
+        // Find closest building index
+        let minD = Infinity;
+        let bestBIdx = -1;
+        const midPoint = { x: (line.start.x + line.end.x)/2, y: (line.start.y + line.end.y)/2 };
+        
+        buildings.forEach((b, bIdx) => {
+           const d = distToPolygon(midPoint, b);
+           if (d < minD) {
+               minD = d;
+               bestBIdx = bIdx;
+           }
+        });
+        if (bestBIdx !== -1) {
+          buildingsWithFirstVeranda.add(bestBIdx);
+        }
+      }
+    });
+
+    // Draw Second Verandas (long building walls, dashed blue-cyan) - ONLY for buildings with 1st veranda
+    const secondVerandas = getSecondVerandas(buildings).filter(line => 
+      line.bIdx !== undefined && buildingsWithFirstVeranda.has(line.bIdx)
+    );
     secondVerandas.forEach(line => {
       ctx.beginPath();
       ctx.moveTo(line.start.x, line.start.y);
       ctx.lineTo(line.end.x, line.end.y);
-      ctx.strokeStyle = '#29b6f6'; 
+      ctx.strokeStyle = '#ff9800'; 
       ctx.lineWidth = 3.5;
       ctx.lineCap = 'round';
       ctx.setLineDash([5, 5]);
@@ -1290,7 +1856,7 @@ export default function App() {
       ctx.moveTo(line.start.x, line.start.y);
       ctx.lineTo(line.end.x, line.end.y);
       if (line.isSecond) {
-        ctx.strokeStyle = '#29b6f6';
+        ctx.strokeStyle = '#ff9800';
         ctx.lineWidth = 3.5;
         ctx.lineCap = 'round';
         ctx.setLineDash([5, 5]);
@@ -1309,7 +1875,7 @@ export default function App() {
       ctx.moveTo(currentLineStart.x, currentLineStart.y);
       ctx.lineTo(mousePos.x, mousePos.y);
       if (mode === 'second_veranda') {
-        ctx.strokeStyle = '#29b6f6';
+        ctx.strokeStyle = '#ff9800';
         ctx.lineWidth = 3.5;
         ctx.lineCap = 'round';
         ctx.setLineDash([5, 5]);
@@ -1361,12 +1927,12 @@ export default function App() {
     const isSimulated = !!result;
 
     const pciColors = [
-      { fill: 'rgba(0, 229, 255, 0.14)', stroke: 'rgba(0, 229, 255, 0.4)', base: '#0288d1', stream: 'rgba(0, 229, 255, 0.28)' },   // Cyan
-      { fill: 'rgba(255, 64, 129, 0.14)', stroke: 'rgba(255, 64, 129, 0.4)', base: '#f50057', stream: 'rgba(255, 64, 129, 0.28)' }, // Pink
-      { fill: 'rgba(0, 230, 118, 0.14)', stroke: 'rgba(0, 230, 118, 0.4)', base: '#00c853', stream: 'rgba(0, 230, 118, 0.28)' }, // Green
-      { fill: 'rgba(255, 152, 0, 0.14)', stroke: 'rgba(255, 152, 0, 0.4)', base: '#ff9100', stream: 'rgba(255, 152, 0, 0.28)' }, // Orange
-      { fill: 'rgba(213, 0, 249, 0.14)', stroke: 'rgba(213, 0, 249, 0.4)', base: '#d500f9', stream: 'rgba(213, 0, 249, 0.28)' }, // Purple
-      { fill: 'rgba(255, 234, 0, 0.14)', stroke: 'rgba(255, 234, 0, 0.4)', base: '#fbc02d', stream: 'rgba(255, 234, 0, 0.28)' }, // Yellow
+      { fill: 'rgba(255, 42, 85, 0.16)', stroke: 'rgba(255, 42, 85, 0.45)', base: '#ff2a55', stream: 'rgba(255, 42, 85, 0.3)' },     // 1: Vivid Red/Pink
+      { fill: 'rgba(0, 229, 255, 0.16)', stroke: 'rgba(0, 229, 255, 0.45)', base: '#00e5ff', stream: 'rgba(0, 229, 255, 0.3)' },     // 2: Cyan
+      { fill: 'rgba(255, 214, 0, 0.16)', stroke: 'rgba(255, 214, 0, 0.45)', base: '#ffd600', stream: 'rgba(255, 214, 0, 0.3)' },     // 3: Bright Yellow
+      { fill: 'rgba(189, 0, 255, 0.16)', stroke: 'rgba(189, 0, 255, 0.45)', base: '#bd00ff', stream: 'rgba(189, 0, 255, 0.3)' },     // 4: Electric Purple
+      { fill: 'rgba(0, 230, 118, 0.16)', stroke: 'rgba(0, 230, 118, 0.45)', base: '#00e676', stream: 'rgba(0, 230, 118, 0.3)' },     // 5: Neon Green
+      { fill: 'rgba(255, 109, 0, 0.16)', stroke: 'rgba(255, 109, 0, 0.45)', base: '#ff6d00', stream: 'rgba(255, 109, 0, 0.3)' },     // 6: Deep Orange
     ];
 
     const getPciColor = (eqId: string, isSim: boolean) => {
@@ -1404,6 +1970,77 @@ export default function App() {
       ctx.stroke();
     });
 
+    // 1b. Overlapping beam interference zones highlighting (translucent Red)
+    if (showInterference && activeEquipments.length > 0) {
+      const sitesMap = new Map<string, Equipment[]>();
+      activeEquipments.forEach((eq) => {
+        const siteId = eq.id.split('-').slice(0, 2).join('-');
+        if (!sitesMap.has(siteId)) {
+          sitesMap.set(siteId, []);
+        }
+        sitesMap.get(siteId)!.push(eq);
+      });
+
+      if (sitesMap.size >= 2) {
+        const siteList = Array.from(sitesMap.entries());
+        const siteCanvases: HTMLCanvasElement[] = [];
+
+        siteList.forEach(([siteId, eqs]) => {
+          const sc = document.createElement('canvas');
+          sc.width = canvas.width;
+          sc.height = canvas.height;
+          const sctx = sc.getContext('2d');
+          if (sctx) {
+            sctx.fillStyle = '#ffffff';
+            eqs.forEach(eq => {
+              const angleRad = (eq.angle - 90) * Math.PI / 180;
+              const beamHalfConf = (params.beamWidth / 2) * Math.PI / 180;
+              const mainStart = angleRad - beamHalfConf;
+              const mainEnd = angleRad + beamHalfConf;
+              const radius = params.maxRange * params.pixelsPerMeter * 0.4;
+
+              sctx.beginPath();
+              sctx.moveTo(eq.x, eq.y);
+              sctx.arc(eq.x, eq.y, radius, mainStart, mainEnd);
+              sctx.closePath();
+              sctx.fill();
+            });
+          }
+          siteCanvases.push(sc);
+        });
+
+        ctx.save();
+        for (let i = 0; i < siteCanvases.length; i++) {
+          for (let j = i + 1; j < siteCanvases.length; j++) {
+            const overlapCanvas = document.createElement('canvas');
+            overlapCanvas.width = canvas.width;
+            overlapCanvas.height = canvas.height;
+            const octx = overlapCanvas.getContext('2d');
+            if (octx) {
+              octx.drawImage(siteCanvases[i], 0, 0);
+              octx.globalCompositeOperation = 'source-in';
+              octx.drawImage(siteCanvases[j], 0, 0);
+
+              const redFilled = document.createElement('canvas');
+              redFilled.width = canvas.width;
+              redFilled.height = canvas.height;
+              const rfctx = redFilled.getContext('2d');
+              if (rfctx) {
+                rfctx.fillStyle = '#ef4444'; // Solid Red
+                rfctx.fillRect(0, 0, canvas.width, canvas.height);
+                rfctx.globalCompositeOperation = 'destination-in';
+                rfctx.drawImage(overlapCanvas, 0, 0);
+              }
+
+              ctx.globalAlpha = 0.55; // translucent red overlap
+              ctx.drawImage(redFilled, 0, 0);
+            }
+          }
+        }
+        ctx.restore();
+      }
+    }
+
     if (result) {
       // 2. Draw Connection Lines (faint beam stream lines)
       result.equipments.forEach((eq) => {
@@ -1420,21 +2057,56 @@ export default function App() {
         }
       });
 
-      // 3. Draw standard (1st) veranda covered points (Green)
-      ctx.fillStyle = '#00e676';
-      result.coveredSamples.forEach(p => {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
-        ctx.fill();
+      // Count sector coverage per point to highlight veranda interference zones
+      const pointCoverCounts = new Map<string, number>();
+      result.equipments.forEach(eq => {
+        if (eq.coveredPoints) {
+          eq.coveredPoints.forEach(p => {
+            const key = `${Math.round(p.x)},${Math.round(p.y)}`;
+            pointCoverCounts.set(key, (pointCoverCounts.get(key) || 0) + 1);
+          });
+        }
       });
 
-      // 4. Draw Second veranda covered points (Cyan / Skyblue - 표시만)
-      if (result.secondCoveredSamples) {
-        ctx.fillStyle = '#29b6f6';
-        result.secondCoveredSamples.forEach(p => {
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+      // 3. Draw standard (1st) veranda covered points (Green or Hot Red for overlap)
+      result.coveredSamples.forEach(p => {
+        const key = `${Math.round(p.x)},${Math.round(p.y)}`;
+        const isInterfered = showInterference && (pointCoverCounts.get(key) || 0) >= 2;
+        
+        ctx.beginPath();
+        if (isInterfered) {
+          ctx.fillStyle = '#ff1744'; // Glowing hot red for veranda interference
+          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
           ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = '#00e676'; // Normal green coverage
+          ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+
+      // 4. Draw Second veranda covered points (Cyan or Hot Red for overlap)
+      if (result.secondCoveredSamples) {
+        result.secondCoveredSamples.forEach(p => {
+          const key = `${Math.round(p.x)},${Math.round(p.y)}`;
+          const isInterfered = showInterference && (pointCoverCounts.get(key) || 0) >= 2;
+
+          ctx.beginPath();
+          if (isInterfered) {
+            ctx.fillStyle = '#ff1744'; // Glowing hot red for veranda interference
+            ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+          } else {
+            ctx.fillStyle = '#ff9800'; // Normal orange coverage
+            ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
         });
       }
     }
@@ -1542,17 +2214,38 @@ export default function App() {
       ctx.restore();
     }
 
-  }, [imageSrc, buildings, verandas, currentPolygon, currentLineStart, mousePos, result, params, manualEquipments, mode]);
+  }, [imageSrc, buildings, verandas, currentPolygon, currentLineStart, mousePos, result, params, manualEquipments, mode, showInterference]);
 
   return (
     <div className="flex h-screen bg-bg-main text-text-primary font-sans">
-      {hoveredBuildingArea && mode === 'idle' && (
+      {hoveredBuildingArea && currentPolygon.length === 0 && !currentLineStart && (
         <div 
-          className="fixed pointer-events-none z-50 bg-zinc-900/90 text-white px-2.5 py-1.5 rounded text-[10px] font-mono shadow-xl border border-zinc-700/50 backdrop-blur-md"
+          className="fixed pointer-events-none z-50 bg-zinc-950/95 text-white px-3 py-2 rounded-lg text-[11px] font-sans shadow-2xl border border-zinc-800 backdrop-blur-md min-w-[160px] space-y-1"
           style={{ top: hoveredBuildingArea.y + 15, left: hoveredBuildingArea.x + 15 }}
         >
-          <div className="font-bold text-gray-300 mb-0.5">{hoveredBuildingArea.name}</div>
-          <div>Area: <span className="text-[#00e5ff]">{Math.round(hoveredBuildingArea.areaM2).toLocaleString()}</span> m²</div>
+          <div className="font-bold text-gray-200 border-b border-zinc-800 pb-1 mb-1 flex justify-between items-center">
+            <span>{hoveredBuildingArea.name}</span>
+            <span className="text-[9px] text-gray-500 font-normal">건물 정보</span>
+          </div>
+          <div className="flex justify-between space-x-4 text-zinc-400">
+            <span>면적:</span>
+            <span className="font-mono text-white font-semibold">{Math.round(hoveredBuildingArea.areaM2).toLocaleString()} m²</span>
+          </div>
+          {hoveredBuildingArea.coverageRatio !== undefined && (
+            <div className="flex justify-between space-x-4 text-zinc-400">
+              <span>수신 커버리지:</span>
+              <span className={`font-mono font-bold ${
+                hoveredBuildingArea.coverageRatio >= 90 ? 'text-emerald-400' : 
+                hoveredBuildingArea.coverageRatio >= 50 ? 'text-amber-400' : 'text-rose-400'
+              }`}>{Math.round(hoveredBuildingArea.coverageRatio)}%</span>
+            </div>
+          )}
+          {hoveredBuildingArea.secondCovered !== undefined && hoveredBuildingArea.secondCovered > 0 && (
+            <div className="flex justify-between space-x-4 text-zinc-400">
+              <span>측벽 보너스:</span>
+              <span className="font-mono font-bold text-orange-400">+{hoveredBuildingArea.secondCovered}m 보너스</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -1611,7 +2304,7 @@ export default function App() {
                 </div>
                 <div className="text-left">
                   <span className="text-[10px] text-gray-500 block uppercase">Current Scale</span>
-                  <span className="text-sm font-mono font-bold text-sky-400 mt-1 block">
+                  <span className="text-sm font-mono font-bold text-orange-400 mt-1 block">
                     {params.pixelsPerMeter} Pix / m
                   </span>
                 </div>
@@ -1660,8 +2353,11 @@ export default function App() {
 
       <div className="w-80 bg-bg-panel border-r border-border-color flex flex-col z-10">
         <div className="p-4 border-b border-border-color shrink-0">
-          <h1 className="text-xl font-bold text-accent tracking-wide">RF-SIM [VER 1.0.4]</h1>
-          <p className="text-sm text-text-secondary mt-1">Network Optimization Tool</p>
+          <h1 className="text-xl font-bold text-accent tracking-wide flex flex-col gap-1">
+            <span>Best LOS SIM[VER 1.1.2]</span>
+          </h1>
+          <p className="text-sm text-text-secondary mt-1 font-medium">Access Eng. 투자 기준 Simulator</p>
+          <p className="text-xs text-text-secondary font-medium mt-1">made by 장영우</p>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -1823,7 +2519,7 @@ export default function App() {
               </button>
               <button 
                 onClick={() => setMode('second_veranda')}
-                className={`flex flex-col items-center p-2 rounded border ${mode === 'second_veranda' ? 'bg-bg-accent border-[#29b6f6] text-[#29b6f6]' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
+                className={`flex flex-col items-center p-2 rounded border ${mode === 'second_veranda' ? 'bg-bg-accent border-[#ff9800] text-[#ff9800]' : 'bg-bg-accent border-border-color text-text-primary hover:border-text-secondary'}`}
               >
                 <Minus className="w-4.5 h-4.5 mb-1 rotate-45" />
                 <span className="text-[10px] font-medium text-center leading-tight">2nd 베란다</span>
@@ -1869,7 +2565,7 @@ export default function App() {
                 <span className="text-gray-300">베란다 (Primary : 100% 점수)</span>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="w-4 h-1 border-t-2 border-dashed border-[#29b6f6]"></span>
+                <span className="w-4 h-1 border-t-2 border-dashed border-[#ff9800]"></span>
                 <span className="text-gray-300">Second 베란다 (긴 벽면 : 70% 점수)</span>
               </div>
               <div className="flex items-center space-x-2">
@@ -1911,8 +2607,15 @@ export default function App() {
                 <input type="number" value={params.maxRange} onChange={e => setParams({...params, maxRange: Number(e.target.value)})} className="w-full px-3 py-2 bg-bg-accent border border-border-color rounded text-sm text-white font-mono" />
               </div>
               <div className="flex items-center space-x-2 pt-1">
-                <input type="checkbox" id="strictCo" checked={params.strictCoLocation} onChange={e => setParams({...params, strictCoLocation: e.target.checked})} className="rounded bg-bg-accent border-border-color" />
+                <input type="checkbox" id="strictCo" checked={params.strictCoLocation} onChange={e => setParams({...params, strictCoLocation: e.target.checked})} className="rounded bg-bg-accent border-border-color cursor-pointer" />
                 <label htmlFor="strictCo" className="text-xs text-text-secondary cursor-pointer">Strict 1 Pole / Building</label>
+              </div>
+              <div className="flex items-center space-x-2 pt-1.5 border-t border-zinc-800/50 mt-1.5">
+                <input type="checkbox" id="showInterference" checked={showInterference} onChange={e => setShowInterference(e.target.checked)} className="rounded bg-bg-accent border-border-color cursor-pointer" />
+                <label htmlFor="showInterference" className="text-xs text-text-secondary cursor-pointer font-medium flex items-center">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5 inline-block animate-pulse"></span>
+                  간섭 구역 표시 (Overlapping Beams)
+                </label>
               </div>
             </div>
           </section>
@@ -1972,12 +2675,71 @@ export default function App() {
                 {result.secondCoveredSamples && result.secondCoveredSamples.length > 0 && (
                   <div className="flex justify-between text-sm border-t border-zinc-800 pt-1.5 mt-1">
                     <span className="text-zinc-400 text-[11px] uppercase flex items-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#29b6f6] mr-1.5 inline-block animate-pulse"></span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#ff9800] mr-1.5 inline-block animate-pulse"></span>
                       2nd 베란다 전파 투영 보너스:
                     </span>
-                    <span className="font-bold text-[#29b6f6] font-mono text-xs">+{result.secondCoveredSamples.length}m</span>
+                    <span className="font-bold text-[#ff9800] font-mono text-xs">+{Math.round(result.secondCoveredSamples.length * 0.7)}m</span>
                   </div>
                 )}
+              </div>
+
+              {/* Equipment Recommendations Card */}
+              {manualEquipments.length > 0 && (
+                <div className="p-3 bg-zinc-950/80 border border-zinc-800 rounded-lg space-y-3 shadow-lg">
+                  <div className="flex items-center space-x-1.5 text-[#ffb300]">
+                    <Sparkles className="w-4 h-4" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider">💡 장비 추천 및 최적화 제안</h3>
+                  </div>
+                  
+                  <div className="text-[11px] text-zinc-400 leading-relaxed">
+                    현재 배치된 수동 장비의 방위각을 분석하여, 건물 베란다를 가장 높은 신호 강도로 조준할 수 있는 물리적 최적각을 계산했습니다.
+                  </div>
+
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {getOptimalManualCalibrations().map((rec) => {
+                      const needsImprovement = Math.abs(rec.recommendedAngle - rec.currentAngle) > 1 && rec.gain > 0.1;
+                      return (
+                        <div key={rec.id} className="p-2 rounded bg-bg-accent border border-border-color space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-xs text-white">{rec.id}</span>
+                            {needsImprovement ? (
+                              <span className="px-1.5 py-0.5 text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full font-bold">
+                                보정 가능 (+{rec.gain})
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 text-[9px] bg-zinc-800 text-zinc-500 rounded-full font-bold">
+                                최적 조준 상태
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex justify-between items-center text-[10px] text-zinc-400 font-mono">
+                            <span>현재: <strong className="text-zinc-300">{rec.currentAngle}°</strong></span>
+                            <span>→</span>
+                            <span>추천: <strong className="text-accent">{rec.recommendedAngle}°</strong></span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={applyOptimalCalibrations}
+                    className="w-full py-2 bg-gradient-to-r from-accent to-[#ffb300] hover:brightness-110 text-zinc-950 font-bold rounded text-xs flex items-center justify-center transition-all shadow-md"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 mr-1.5 animate-pulse" /> 방위각 최적화 보정 자동 실행
+                  </button>
+                </div>
+              )}
+
+              {/* General RF Placement Tips */}
+              <div className="p-2.5 bg-bg-accent border border-border-color/50 rounded-lg text-[10px] text-zinc-400 space-y-1.5">
+                <span className="font-semibold text-zinc-300 block">ℹ️ 물리적 설치 가이드 및 팁</span>
+                <p className="leading-relaxed">
+                  • <strong>베란다 미동정 건물</strong>: 베란다 동정 라인이 없는 건물은 반사벽 및 LOS 차단 건물로 자동 분류되어 전파 분석에 안정적으로 반영되었습니다.
+                </p>
+                <p className="leading-relaxed">
+                  • <strong>간섭 방지법</strong>: 동일 Pole에 co-locate된 섹터 안테나들은 간섭 방지를 위해 최소 80도 이상의 물리적 이격을 가지도록 각도 조정을 설계하세요.
+                </p>
               </div>
 
               <div className="bg-bg-accent rounded border border-border-color overflow-hidden flex flex-col">
@@ -2050,6 +2812,56 @@ export default function App() {
             </div>
           )}
 
+          {/* HUD Overlay Legend */}
+          {result && (
+            <div className="absolute top-4 left-4 z-20 bg-zinc-950/95 border border-zinc-800/80 backdrop-blur-md px-3.5 py-3 rounded-lg shadow-2xl text-left max-w-[280px] transition-all duration-300 ease-in-out">
+              <div 
+                className="text-[10px] font-bold text-accent tracking-wider uppercase flex items-center justify-between cursor-pointer"
+                onClick={() => setIsLegendOpen(!isLegendOpen)}
+              >
+                <div className="flex items-center">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5 inline-block animate-pulse"></span>
+                  RF SIMULATION 범례 (LEGEND)
+                </div>
+                <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-300 ${isLegendOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+              {isLegendOpen && (
+                <div className="space-y-2 text-[10px] font-semibold text-gray-300 mt-3 pointer-events-none select-none">
+                  <div className="flex items-start space-x-2.5">
+                    <span className="w-4 h-4 rounded bg-[#ef4444]/35 border border-[#ef4444]/60 inline-block shrink-0 mt-0.5"></span>
+                    <div>
+                      <span className="block text-white">Spatial Beam Overlap</span>
+                      <span className="text-gray-400 font-normal">공간상 안테나 빔 중첩 구역 (간섭 유발 가능)</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#ff1744] border border-white inline-block shrink-0 mt-0.5"></span>
+                    <div>
+                      <span className="block text-white">Veranda Multi-Coverage (간섭)</span>
+                      <span className="text-gray-400 font-normal">베란다 수신 중첩 구역 (실제 단말 간섭 영역)</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#00e676] inline-block shrink-0 mt-0.5"></span>
+                    <div>
+                      <span className="block text-white">Normal 1st Veranda Coverage</span>
+                      <span className="text-gray-400 font-normal">안정적인 1차 전파 수신 영역</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#ff9800] inline-block shrink-0 mt-0.5"></span>
+                    <div>
+                      <span className="block text-white">Concrete Wall Projection Bonus</span>
+                      <span className="text-gray-400 font-normal">2차 반사/장변 벽면 전파 보너스 영역</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Floating AI UI */}
           <AnimatePresence>
             {result && (
@@ -2103,15 +2915,15 @@ export default function App() {
                   whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setShowAiPanel(!showAiPanel)}
-                  className={`px-8 py-4 rounded-2xl flex items-center justify-center shadow-2xl transition-all duration-300 border-2 z-50 group shadow-warning/20 ${
+                  className={`px-4 py-2 rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 border-2 z-50 group shadow-warning/20 ${
                     showAiPanel 
                     ? 'bg-white border-warning text-black' 
                     : 'bg-warning border-white/20 text-black'
                   }`}
                 >
-                  <Sparkles className={`w-5 h-5 mr-3 ${showAiPanel ? 'text-warning' : 'text-black'}`} />
-                  <span className="font-bold text-lg tracking-tight uppercase">AI Insights</span>
-                  {showAiPanel && <X className="w-5 h-5 ml-3 text-black/50" />}
+                  <Sparkles className={`w-4 h-4 mr-2 ${showAiPanel ? 'text-warning' : 'text-black'}`} />
+                  <span className="font-bold text-sm tracking-tight uppercase">AI Insights</span>
+                  {showAiPanel && <X className="w-4 h-4 ml-2 text-black/50" />}
                 </motion.button>
               </div>
             )}
