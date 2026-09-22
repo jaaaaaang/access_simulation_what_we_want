@@ -1,0 +1,519 @@
+{
+  "rapaKey": "m-RAPA-2010-5590",
+  "analyzedAt": "2026-08-17T13:14:25.168Z",
+  "durationSec": 1,
+  "status": "OK",
+  "errorMsg": null,
+  "warningMsg": null,
+  "source": "batch",
+  "params": {
+    "beamWidth": 65,
+    "maxRange": 150,
+    "targetCoverage": 60,
+    "pixelsPerMeter": 1.596,
+    "strictCoLocation": true,
+    "simulationMode": "full_auto",
+    "analysisArea": [
+      {
+        "x": 65.3,
+        "y": 719.817400897752
+      },
+      {
+        "x": 587.6999999999998,
+        "y": 719.817400897752
+      },
+      {
+        "x": 587.6999999999998,
+        "y": 80.18259910201209
+      },
+      {
+        "x": 65.3,
+        "y": 80.18259910201209
+      },
+      {
+        "x": 65.3,
+        "y": 719.817400897752
+      }
+    ]
+  },
+  "scene": {
+    "buildingCount": 10,
+    "verandaSource": "verandaAi-v2.2",
+    "pixelsPerMeter": 1.596
+  },
+  "rank1": {
+    "coverageRatio": 33.9,
+    "secondCoveredSamples": 1,
+    "secondCoverage": 1,
+    "coveredSamples": [
+      {
+        "x": 176.9,
+        "y": 277.2
+      },
+      {
+        "x": 176.7,
+        "y": 275.6
+      },
+      {
+        "x": 176.5,
+        "y": 274.1
+      },
+      {
+        "x": 176.3,
+        "y": 272.5
+      },
+      {
+        "x": 176.1,
+        "y": 270.9
+      },
+      {
+        "x": 175.8,
+        "y": 269.4
+      },
+      {
+        "x": 175.6,
+        "y": 267.8
+      },
+      {
+        "x": 175.4,
+        "y": 266.3
+      },
+      {
+        "x": 175.2,
+        "y": 264.7
+      },
+      {
+        "x": 175,
+        "y": 263.1
+      },
+      {
+        "x": 174.8,
+        "y": 261.6
+      },
+      {
+        "x": 174.6,
+        "y": 260
+      },
+      {
+        "x": 174.3,
+        "y": 258.5
+      },
+      {
+        "x": 174.1,
+        "y": 256.9
+      },
+      {
+        "x": 173.9,
+        "y": 255.3
+      },
+      {
+        "x": 173.7,
+        "y": 253.8
+      },
+      {
+        "x": 173.5,
+        "y": 252.2
+      },
+      {
+        "x": 155.2,
+        "y": 224
+      },
+      {
+        "x": 156.7,
+        "y": 223.9
+      },
+      {
+        "x": 158.1,
+        "y": 223.9
+      },
+      {
+        "x": 159.6,
+        "y": 223.9
+      },
+      {
+        "x": 161,
+        "y": 223.9
+      },
+      {
+        "x": 162.5,
+        "y": 223.9
+      },
+      {
+        "x": 162.5,
+        "y": 223.9
+      },
+      {
+        "x": 162.6,
+        "y": 222.4
+      },
+      {
+        "x": 162.6,
+        "y": 220.8
+      },
+      {
+        "x": 162.7,
+        "y": 219.3
+      },
+      {
+        "x": 162.8,
+        "y": 217.8
+      },
+      {
+        "x": 162.9,
+        "y": 216.3
+      },
+      {
+        "x": 162.9,
+        "y": 214.7
+      },
+      {
+        "x": 187,
+        "y": 290.4
+      },
+      {
+        "x": 186.9,
+        "y": 288.9
+      },
+      {
+        "x": 186.8,
+        "y": 287.5
+      },
+      {
+        "x": 186.7,
+        "y": 286
+      },
+      {
+        "x": 186.6,
+        "y": 284.5
+      },
+      {
+        "x": 186.5,
+        "y": 283
+      },
+      {
+        "x": 186.4,
+        "y": 281.6
+      },
+      {
+        "x": 186.3,
+        "y": 280.1
+      },
+      {
+        "x": 186.2,
+        "y": 278.6
+      },
+      {
+        "x": 186,
+        "y": 277.1
+      },
+      {
+        "x": 185.9,
+        "y": 275.6
+      },
+      {
+        "x": 185.8,
+        "y": 274.2
+      }
+    ],
+    "secondCoveredSamplesPoints": [
+      {
+        "x": 173.2,
+        "y": 286.1
+      }
+    ],
+    "sites": [
+      {
+        "siteIdx": 0,
+        "x": 186.3,
+        "y": 259.5,
+        "lng": 128.73843404,
+        "lat": 35.24339589,
+        "bIdx": 4,
+        "sectors": [
+          {
+            "id": "AUTO-1-B",
+            "angle": 291,
+            "type": "auto"
+          },
+          {
+            "id": "AUTO-1-A",
+            "angle": 193,
+            "type": "auto"
+          }
+        ]
+      }
+    ],
+    "buildingCoverages": [
+      {
+        "bIdx": 0,
+        "total": 17,
+        "covered": 17,
+        "ratio": 100,
+        "secondCovered": 0,
+        "secondTotal": 17
+      },
+      {
+        "bIdx": 1,
+        "total": 17,
+        "covered": 0,
+        "ratio": 0,
+        "secondCovered": 0,
+        "secondTotal": 17
+      },
+      {
+        "bIdx": 2,
+        "total": 13,
+        "covered": 0,
+        "ratio": 0,
+        "secondCovered": 0,
+        "secondTotal": 13
+      },
+      {
+        "bIdx": 3,
+        "total": 13,
+        "covered": 13,
+        "ratio": 100,
+        "secondCovered": 0,
+        "secondTotal": 13
+      },
+      {
+        "bIdx": 4,
+        "total": 15,
+        "covered": 0,
+        "ratio": 0,
+        "secondCovered": 0,
+        "secondTotal": 15
+      },
+      {
+        "bIdx": 5,
+        "total": 7,
+        "covered": 0,
+        "ratio": 0,
+        "secondCovered": 0,
+        "secondTotal": 7
+      },
+      {
+        "bIdx": 6,
+        "total": 11,
+        "covered": 0,
+        "ratio": 6.363636363636363,
+        "secondCovered": 1,
+        "secondTotal": 11
+      },
+      {
+        "bIdx": 7,
+        "total": 13,
+        "covered": 12,
+        "ratio": 92.3076923076923,
+        "secondCovered": 0,
+        "secondTotal": 13
+      },
+      {
+        "bIdx": 8,
+        "total": 13,
+        "covered": 0,
+        "ratio": 0,
+        "secondCovered": 0,
+        "secondTotal": 12
+      },
+      {
+        "bIdx": 9,
+        "total": 5,
+        "covered": 0,
+        "ratio": 0,
+        "secondCovered": 0,
+        "secondTotal": 5
+      }
+    ],
+    "logs": [
+      {
+        "id": "AUTO-1-B",
+        "x": 186,
+        "y": 260,
+        "angle": 291,
+        "score": 22,
+        "coveredCount": 22,
+        "message": "[AUTO-SECTOR] Sector AUTO-1-B placed at (186, 260) facing 291° on Building #5. Secured 22m 1st coverage (LOS Score: 22)."
+      },
+      {
+        "id": "AUTO-1-A",
+        "x": 186,
+        "y": 260,
+        "angle": 193,
+        "score": 20,
+        "coveredCount": 20,
+        "message": "[AUTO-SECTOR] Sector AUTO-1-A placed at (186, 260) facing 193° on Building #5. Secured 20m 1st coverage (LOS Score: 20)."
+      },
+      {
+        "id": "SITE-1",
+        "x": 186,
+        "y": 260,
+        "angle": 193,
+        "score": 42.02,
+        "coveredCount": 42,
+        "message": "[AUTO-SITE] Site #1 Summary at (186, 260). Deployed 2 active sectors [B(291°: 22m), A(193°: 20m)]. Total Secured: 42m."
+      }
+    ]
+  },
+  "topRanks": [
+    {
+      "rank": 1,
+      "coverageRatio": 33.9,
+      "siteCount": 1,
+      "sectorCount": 2,
+      "sites": [
+        {
+          "x": 186.3,
+          "y": 259.5,
+          "lng": 128.73843404,
+          "lat": 35.24339589,
+          "bIdx": 4,
+          "angles": [
+            291,
+            193
+          ]
+        }
+      ]
+    },
+    {
+      "rank": 2,
+      "coverageRatio": 52.5,
+      "siteCount": 2,
+      "sectorCount": 4,
+      "sites": [
+        {
+          "x": 187,
+          "y": 263,
+          "lng": 128.73843917,
+          "lat": 35.24337631,
+          "bIdx": 4,
+          "angles": [
+            200,
+            290
+          ]
+        },
+        {
+          "x": 192,
+          "y": 308,
+          "lng": 128.73847362,
+          "lat": 35.24312305,
+          "bIdx": 9,
+          "angles": [
+            10,
+            300
+          ]
+        }
+      ]
+    },
+    {
+      "rank": 3,
+      "coverageRatio": 47.5,
+      "siteCount": 2,
+      "sectorCount": 4,
+      "sites": [
+        {
+          "x": 187,
+          "y": 267,
+          "lng": 128.73843917,
+          "lat": 35.2433538,
+          "bIdx": 4,
+          "angles": [
+            210,
+            300
+          ]
+        },
+        {
+          "x": 194,
+          "y": 303,
+          "lng": 128.73848741,
+          "lat": 35.24315119,
+          "bIdx": 9,
+          "angles": [
+            20,
+            290
+          ]
+        }
+      ]
+    },
+    {
+      "rank": 4,
+      "coverageRatio": 46.5,
+      "siteCount": 2,
+      "sectorCount": 4,
+      "sites": [
+        {
+          "x": 187,
+          "y": 275,
+          "lng": 128.73843917,
+          "lat": 35.24330878,
+          "bIdx": 8,
+          "angles": [
+            180,
+            300
+          ]
+        },
+        {
+          "x": 188,
+          "y": 306,
+          "lng": 128.73844606,
+          "lat": 35.2431343,
+          "bIdx": 9,
+          "angles": [
+            40,
+            300
+          ]
+        }
+      ]
+    },
+    {
+      "rank": 5,
+      "coverageRatio": 48.5,
+      "siteCount": 2,
+      "sectorCount": 5,
+      "sites": [
+        {
+          "x": 186,
+          "y": 256,
+          "lng": 128.73843228,
+          "lat": 35.24341571,
+          "bIdx": 4,
+          "angles": [
+            180,
+            250,
+            320
+          ]
+        },
+        {
+          "x": 195,
+          "y": 306,
+          "lng": 128.7384943,
+          "lat": 35.2431343,
+          "bIdx": 9,
+          "angles": [
+            0,
+            300
+          ]
+        }
+      ]
+    }
+  ],
+  "stepReport": {
+    "ina_no": "m-RAPA-2010-5590",
+    "apt_name": "m-RAPA-2010-5590",
+    "steps": {
+      "2.1_polygon_fetch": "OK",
+      "2.2_nearby_sites": "SKIP",
+      "2.3_kanro_check": "OK",
+      "2.4_veranda_setup": "OK",
+      "2.5_polygon_filter": "OK",
+      "2.6_los_simulation": "OK",
+      "2.7_ailayer_prep": "OK",
+      "3_ailayer_update": "SKIP"
+    },
+    "overall": "OK",
+    "error_msg": null,
+    "warning_msg": null,
+    "los_pct": 33.9,
+    "site_cnt": 1
+  }
+}

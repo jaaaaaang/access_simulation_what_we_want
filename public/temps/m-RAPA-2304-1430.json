@@ -1,0 +1,456 @@
+{
+  "rapaKey": "m-RAPA-2304-1430",
+  "queriedAt": "2026-09-11T08:41:07.866841+00:00",
+  "complex": {
+    "bld_cplx_inf_id": null,
+    "cplx_scl_nm": "영암 대불 3차 렉시안 파크타운 아파트",
+    "polygon": [
+      [
+        126.45772002,
+        34.75698775
+      ],
+      [
+        126.45908356,
+        34.75755083
+      ],
+      [
+        126.45956788,
+        34.75675364
+      ],
+      [
+        126.45999054,
+        34.75605764
+      ],
+      [
+        126.4586268,
+        34.75549472
+      ],
+      [
+        126.45772002,
+        34.75698775
+      ]
+    ],
+    "area_m2": 25746.7,
+    "boundary_method": "closed-ring"
+  },
+  "buildingSource": "dxf_extraction_v3(m-RAPA-2304-1430.dxf 배치도)",
+  "bufferDeg": null,
+  "buildings": [
+    {
+      "ciss_bld_cd": "N126.45848 34.75630",
+      "bld_nm": "302동",
+      "floors_above": 25,
+      "floors_below": 1,
+      "height": 72.5,
+      "height_note": "estimated: floors_above x 2.9m",
+      "is_duct_building": true,
+      "duct_marker_count": 0,
+      "rooftop_repeater_count": 1,
+      "equipment_install_method": "rooftop",
+      "duct_evidence": "rooftop-marker",
+      "floor_marks": [
+        "25F"
+      ],
+      "center": [
+        126.45849862,
+        34.75628538
+      ],
+      "polygon": [
+        [
+          126.45819644,
+          34.75620809
+        ],
+        [
+          126.45824489,
+          34.756132
+        ],
+        [
+          126.458814,
+          34.75637838
+        ],
+        [
+          126.45877427,
+          34.75644077
+        ],
+        [
+          126.45857334,
+          34.75635787
+        ],
+        [
+          126.45828345,
+          34.75624112
+        ],
+        [
+          126.45819644,
+          34.75620809
+        ]
+      ],
+      "footprint_area_m2": 499.4,
+      "extract_method": "hatch"
+    },
+    {
+      "ciss_bld_cd": "N126.45849 34.75576",
+      "bld_nm": "301동",
+      "floors_above": 20,
+      "floors_below": 1,
+      "height": 58,
+      "height_note": "estimated: floors_above x 2.9m",
+      "is_duct_building": true,
+      "duct_marker_count": 0,
+      "rooftop_repeater_count": 1,
+      "equipment_install_method": "rooftop",
+      "duct_evidence": "rooftop-marker",
+      "floor_marks": [
+        "20F"
+      ],
+      "center": [
+        126.45879255,
+        34.75580198
+      ],
+      "polygon": [
+        [
+          126.45849,
+          34.75572443
+        ],
+        [
+          126.4585395,
+          34.75564742
+        ],
+        [
+          126.45910743,
+          34.75589563
+        ],
+        [
+          126.45906673,
+          34.75595893
+        ],
+        [
+          126.45886338,
+          34.75587333
+        ],
+        [
+          126.45857742,
+          34.75575712
+        ],
+        [
+          126.45849,
+          34.75572443
+        ]
+      ],
+      "footprint_area_m2": 503.4,
+      "extract_method": "hatch"
+    },
+    {
+      "ciss_bld_cd": "N126.45848 34.75695",
+      "bld_nm": "304동",
+      "floors_above": 25,
+      "floors_below": 1,
+      "height": 72.5,
+      "height_note": "estimated: floors_above x 2.9m",
+      "is_duct_building": true,
+      "duct_marker_count": 0,
+      "rooftop_repeater_count": 1,
+      "equipment_install_method": "rooftop",
+      "duct_evidence": "rooftop-marker",
+      "floor_marks": [
+        "25F"
+      ],
+      "center": [
+        126.45814974,
+        34.7568597
+      ],
+      "polygon": [
+        [
+          126.45784755,
+          34.75678242
+        ],
+        [
+          126.457896,
+          34.75670632
+        ],
+        [
+          126.45846511,
+          34.75695269
+        ],
+        [
+          126.45842538,
+          34.75701508
+        ],
+        [
+          126.45822445,
+          34.75693218
+        ],
+        [
+          126.45793456,
+          34.75681543
+        ],
+        [
+          126.45784755,
+          34.75678242
+        ]
+      ],
+      "footprint_area_m2": 499.4,
+      "extract_method": "hatch"
+    },
+    {
+      "ciss_bld_cd": "N126.45927 34.75635",
+      "bld_nm": "303동",
+      "floors_above": 25,
+      "floors_below": 1,
+      "height": 72.5,
+      "height_note": "estimated: floors_above x 2.9m",
+      "is_duct_building": true,
+      "duct_marker_count": 0,
+      "rooftop_repeater_count": 1,
+      "equipment_install_method": "rooftop",
+      "duct_evidence": "rooftop-marker",
+      "floor_marks": [
+        "25F",
+        "23F",
+        "19F",
+        "15F"
+      ],
+      "center": [
+        126.45917551,
+        34.75661362
+      ],
+      "polygon": [
+        [
+          126.45886352,
+          34.75656282
+        ],
+        [
+          126.45892839,
+          34.75646623
+        ],
+        [
+          126.45899898,
+          34.7564633
+        ],
+        [
+          126.45907143,
+          34.75644204
+        ],
+        [
+          126.45909604,
+          34.75645329
+        ],
+        [
+          126.45914435,
+          34.7565598
+        ],
+        [
+          126.45956602,
+          34.75675239
+        ],
+        [
+          126.45952159,
+          34.75681853
+        ],
+        [
+          126.45944523,
+          34.75678365
+        ],
+        [
+          126.45941953,
+          34.75674203
+        ],
+        [
+          126.4593853,
+          34.75672639
+        ],
+        [
+          126.45931236,
+          34.75673461
+        ],
+        [
+          126.45915687,
+          34.75666359
+        ],
+        [
+          126.45913982,
+          34.75663295
+        ],
+        [
+          126.4590641,
+          34.75659838
+        ],
+        [
+          126.45904549,
+          34.75656101
+        ],
+        [
+          126.45902576,
+          34.75659039
+        ],
+        [
+          126.45904283,
+          34.75659818
+        ],
+        [
+          126.45901892,
+          34.75663379
+        ],
+        [
+          126.45886352,
+          34.75656282
+        ]
+      ],
+      "footprint_area_m2": 698.1,
+      "extract_method": "hatch"
+    },
+    {
+      "ciss_bld_cd": "N126.45927 34.75693",
+      "bld_nm": "305동",
+      "floors_above": 25,
+      "floors_below": 1,
+      "height": 72.5,
+      "height_note": "estimated: floors_above x 2.9m",
+      "is_duct_building": false,
+      "duct_marker_count": 0,
+      "rooftop_repeater_count": 0,
+      "equipment_install_method": null,
+      "duct_evidence": null,
+      "floor_marks": [
+        "25F"
+      ],
+      "center": [
+        126.45886425,
+        34.75713252
+      ],
+      "polygon": [
+        [
+          126.45857466,
+          34.7570427
+        ],
+        [
+          126.45862484,
+          34.7569601
+        ],
+        [
+          126.45868553,
+          34.75698517
+        ],
+        [
+          126.45875155,
+          34.75696251
+        ],
+        [
+          126.45881352,
+          34.7569881
+        ],
+        [
+          126.45881224,
+          34.75703123
+        ],
+        [
+          126.45883499,
+          34.75709261
+        ],
+        [
+          126.45925353,
+          34.75726544
+        ],
+        [
+          126.45920905,
+          34.75733864
+        ],
+        [
+          126.45912893,
+          34.75730556
+        ],
+        [
+          126.4591043,
+          34.7572636
+        ],
+        [
+          126.45906118,
+          34.75724581
+        ],
+        [
+          126.45900064,
+          34.75725272
+        ],
+        [
+          126.45884618,
+          34.75718894
+        ],
+        [
+          126.45879247,
+          34.75710979
+        ],
+        [
+          126.45873279,
+          34.75708514
+        ],
+        [
+          126.45869165,
+          34.75715284
+        ],
+        [
+          126.45858869,
+          34.75711033
+        ],
+        [
+          126.45857466,
+          34.7570427
+        ]
+      ],
+      "footprint_area_m2": 690.6,
+      "extract_method": "hatch"
+    }
+  ],
+  "skipped": false,
+  "skipReason": null,
+  "stats": {
+    "total": 5,
+    "inComplex": 5,
+    "neighbors": 0,
+    "duct_buildings": 4,
+    "rooftop_antennas": 4,
+    "unlabeled_buildings": 0
+  },
+  "georeference": {
+    "method": "shape-match(parcel-geo: 1665-3대 (지번좌표 필지))",
+    "rotation_deg_ccw": 26.6,
+    "confidence": "medium",
+    "anchor": "VWorld 형상 정합 IoU 0.9138 → 도심 (34.7565227,126.4588553), 이동 16.9m / 회전 26.6°",
+    "scale_mm_to_m": 0.001,
+    "georef_fit": {
+      "iou": 0.9138,
+      "source": "parcel-geo",
+      "label": "1665-3대 (지번좌표 필지)",
+      "areaRatio": 1.098,
+      "margin": 0,
+      "rotationCandidates": [
+        -153.4,
+        26.6
+      ],
+      "note": "위치는 주소 지번 필지(1665-3)로 확정. 방향은 180° 대칭 후보 존재(정북 가정에 가까운 쪽 선택) — 확인 필요",
+      "at": "2026-09-11T13:12:13.620Z"
+    },
+    "history": [
+      {
+        "at": "2026-09-11T13:12:13.620Z",
+        "rotDeg": 26.6,
+        "shiftM": 16.9,
+        "method": "shape-match(parcel-geo: 1665-3대 (지번좌표 필지))"
+      }
+    ]
+  },
+  "duct_crosscheck": {
+    "riser_ducts": [
+      "301",
+      "302",
+      "303",
+      "304"
+    ],
+    "note": "관로동 판정은 배치도 설치 심볼 기준, 계통도는 교차검증용"
+  },
+  "_edit": {
+    "firstEditedAt": "2026-09-11T13:12:13.625Z",
+    "editedAt": "2026-09-11T13:12:13.625Z",
+    "source": "rf-los-simulator/db-save",
+    "buildingCount": 5
+  }
+}

@@ -1,0 +1,1739 @@
+{
+  "total": 289,
+  "status": {
+    "m-RAPA-1705-06-02-41": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-1712-03-02-2847": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-1801-03-02-412": {
+      "hasComplex": true,
+      "buildingCount": 102,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1803-05-02-1032": {
+      "hasComplex": true,
+      "buildingCount": 79,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1805-04-02-2732": {
+      "hasComplex": true,
+      "buildingCount": 458,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1810-6053": {
+      "hasComplex": true,
+      "buildingCount": 473,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1810-6057": {
+      "hasComplex": true,
+      "buildingCount": 473,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1810-6058": {
+      "hasComplex": true,
+      "buildingCount": 473,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1810-6059": {
+      "hasComplex": true,
+      "buildingCount": 473,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1811-6729": {
+      "hasComplex": true,
+      "buildingCount": 404,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1811-7112": {
+      "hasComplex": true,
+      "buildingCount": 570,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1811-7115": {
+      "hasComplex": true,
+      "buildingCount": 570,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1812-7573": {
+      "hasComplex": true,
+      "buildingCount": 353,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1812-7635": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-1812-7717": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-1901-0082": {
+      "hasComplex": true,
+      "buildingCount": 187,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1901-0209": {
+      "hasComplex": true,
+      "buildingCount": 519,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1901-0546": {
+      "hasComplex": true,
+      "buildingCount": 245,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1902-0701": {
+      "hasComplex": true,
+      "buildingCount": 315,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1902-0738": {
+      "hasComplex": true,
+      "buildingCount": 461,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1902-0739": {
+      "hasComplex": true,
+      "buildingCount": 461,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1902-0897": {
+      "hasComplex": true,
+      "buildingCount": 143,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1903-1809": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-1904-2402": {
+      "hasComplex": true,
+      "buildingCount": 566,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1905-2967": {
+      "hasComplex": true,
+      "buildingCount": 180,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1905-3023": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-1907-3796": {
+      "hasComplex": true,
+      "buildingCount": 140,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1907-3797": {
+      "hasComplex": true,
+      "buildingCount": 265,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1908-4373": {
+      "hasComplex": true,
+      "buildingCount": 90,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1908-4586": {
+      "hasComplex": true,
+      "buildingCount": 26,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1909-4801": {
+      "hasComplex": true,
+      "buildingCount": 483,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1909-5157": {
+      "hasComplex": true,
+      "buildingCount": 615,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1909-5217": {
+      "hasComplex": true,
+      "buildingCount": 144,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1910-5654": {
+      "hasComplex": true,
+      "buildingCount": 918,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1911-5808": {
+      "hasComplex": true,
+      "buildingCount": 103,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1911-6324": {
+      "hasComplex": true,
+      "buildingCount": 72,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-1911-6347": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2004-1607": {
+      "hasComplex": true,
+      "buildingCount": 153,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2004-1807": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2004-1846": {
+      "hasComplex": true,
+      "buildingCount": 52,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2006-2744": {
+      "hasComplex": true,
+      "buildingCount": 64,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2006-3299": {
+      "hasComplex": true,
+      "buildingCount": 488,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2007-3415": {
+      "hasComplex": true,
+      "buildingCount": 157,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2007-3684": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2008-4170": {
+      "hasComplex": true,
+      "buildingCount": 147,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2008-4501": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2009-4621": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2009-4716": {
+      "hasComplex": true,
+      "buildingCount": 12,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2009-5139": {
+      "hasComplex": true,
+      "buildingCount": 277,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2010-5590": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2010-5592": {
+      "hasComplex": true,
+      "buildingCount": 83,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2010-5635": {
+      "hasComplex": true,
+      "buildingCount": 31,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2011-6153": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2011-6379": {
+      "hasComplex": true,
+      "buildingCount": 110,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2012-6592": {
+      "hasComplex": true,
+      "buildingCount": 146,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2012-6898": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2012-6980": {
+      "hasComplex": true,
+      "buildingCount": 47,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2012-7033": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2012-7114": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2101-0094": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2102-0689": {
+      "hasComplex": true,
+      "buildingCount": 145,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2102-0725": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2103-1329": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2103-1408": {
+      "hasComplex": true,
+      "buildingCount": 46,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2103-1631": {
+      "hasComplex": true,
+      "buildingCount": 127,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2103-1663": {
+      "hasComplex": true,
+      "buildingCount": 41,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2104-2092": {
+      "hasComplex": true,
+      "buildingCount": 72,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2104-2131": {
+      "hasComplex": true,
+      "buildingCount": 87,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2104-2288": {
+      "hasComplex": true,
+      "buildingCount": 75,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2105-2717": {
+      "hasComplex": true,
+      "buildingCount": 291,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2105-3094": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2106-3695": {
+      "hasComplex": true,
+      "buildingCount": 280,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2106-3707": {
+      "hasComplex": true,
+      "buildingCount": 37,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2106-3833": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2106-3853": {
+      "hasComplex": true,
+      "buildingCount": 31,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2106-3943": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2106-3961": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2107-4134": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2107-4333": {
+      "hasComplex": true,
+      "buildingCount": 213,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2107-4632": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2107-4640": {
+      "hasComplex": true,
+      "buildingCount": 37,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2107-4650": {
+      "hasComplex": true,
+      "buildingCount": 440,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2107-4654": {
+      "hasComplex": true,
+      "buildingCount": 51,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2108-5323": {
+      "hasComplex": true,
+      "buildingCount": 43,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2109-5774": {
+      "hasComplex": true,
+      "buildingCount": 95,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2109-5792": {
+      "hasComplex": true,
+      "buildingCount": 65,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2109-5838": {
+      "hasComplex": true,
+      "buildingCount": 35,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2109-5951": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2109-5973": {
+      "hasComplex": true,
+      "buildingCount": 144,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6142": {
+      "hasComplex": true,
+      "buildingCount": 96,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6146": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6148": {
+      "hasComplex": true,
+      "buildingCount": 245,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6170": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6180": {
+      "hasComplex": true,
+      "buildingCount": 99,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6225": {
+      "hasComplex": true,
+      "buildingCount": 83,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6387": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6396": {
+      "hasComplex": true,
+      "buildingCount": 86,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6422": {
+      "hasComplex": true,
+      "buildingCount": 132,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6490": {
+      "hasComplex": true,
+      "buildingCount": 8,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6492": {
+      "hasComplex": true,
+      "buildingCount": 39,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6520": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6621": {
+      "hasComplex": true,
+      "buildingCount": 22,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6635": {
+      "hasComplex": true,
+      "buildingCount": 37,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6637": {
+      "hasComplex": true,
+      "buildingCount": 39,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2110-6771": {
+      "hasComplex": true,
+      "buildingCount": 41,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2111-6916": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2111-6918": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2111-6939": {
+      "hasComplex": true,
+      "buildingCount": 45,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2111-7124": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2111-7256": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2112-7957": {
+      "hasComplex": true,
+      "buildingCount": 313,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2112-8222": {
+      "hasComplex": true,
+      "buildingCount": 87,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2201-0290": {
+      "hasComplex": true,
+      "buildingCount": 59,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2201-0300": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2201-0323": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2201-0422": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2201-0468": {
+      "hasComplex": true,
+      "buildingCount": 60,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2201-0482": {
+      "hasComplex": true,
+      "buildingCount": 55,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2202-0621": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2202-0637": {
+      "hasComplex": true,
+      "buildingCount": 321,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2202-0772": {
+      "hasComplex": true,
+      "buildingCount": 36,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2202-0827": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2202-0846": {
+      "hasComplex": true,
+      "buildingCount": 10,
+      "source": "dxf_extraction(m-RAPA-2202-0846.dxf 옥외배치도)",
+      "hasPlan": true
+    },
+    "m-RAPA-2202-0851": {
+      "hasComplex": true,
+      "buildingCount": 27,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2202-0957": {
+      "hasComplex": true,
+      "buildingCount": 158,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2202-1044": {
+      "hasComplex": true,
+      "buildingCount": 144,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2202-1046": {
+      "hasComplex": true,
+      "buildingCount": 144,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2202-1060": {
+      "hasComplex": true,
+      "buildingCount": 132,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2203-1338": {
+      "hasComplex": true,
+      "buildingCount": 55,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2203-1552": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2203-1640": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2203-1644": {
+      "hasComplex": true,
+      "buildingCount": 104,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2203-1679": {
+      "hasComplex": true,
+      "buildingCount": 35,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2203-1802": {
+      "hasComplex": true,
+      "buildingCount": 146,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2204-1897": {
+      "hasComplex": true,
+      "buildingCount": 114,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2204-1931": {
+      "hasComplex": true,
+      "buildingCount": 433,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2204-1933": {
+      "hasComplex": true,
+      "buildingCount": 433,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2204-1942": {
+      "hasComplex": true,
+      "buildingCount": 45,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2204-2378": {
+      "hasComplex": true,
+      "buildingCount": 660,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2205-2627": {
+      "hasComplex": true,
+      "buildingCount": 45,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2205-2673": {
+      "hasComplex": true,
+      "buildingCount": 25,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2205-2760": {
+      "hasComplex": true,
+      "buildingCount": 496,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2205-2845": {
+      "hasComplex": true,
+      "buildingCount": 65,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2205-3019": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2205-3045": {
+      "hasComplex": true,
+      "buildingCount": 154,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2205-3099": {
+      "hasComplex": true,
+      "buildingCount": 155,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2205-3183": {
+      "hasComplex": true,
+      "buildingCount": 187,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2205-3222": {
+      "hasComplex": true,
+      "buildingCount": 43,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2206-3348": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2206-3434": {
+      "hasComplex": true,
+      "buildingCount": 40,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2206-3599": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2206-3699": {
+      "hasComplex": true,
+      "buildingCount": 220,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2206-3717": {
+      "hasComplex": true,
+      "buildingCount": 73,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2206-3734": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2206-3802": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2207-3968": {
+      "hasComplex": true,
+      "buildingCount": 51,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2207-4073": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2207-4362": {
+      "hasComplex": true,
+      "buildingCount": 146,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2207-4386": {
+      "hasComplex": true,
+      "buildingCount": 49,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2207-4396": {
+      "hasComplex": true,
+      "buildingCount": 14,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2208-4482": {
+      "hasComplex": true,
+      "buildingCount": 28,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2208-4530": {
+      "hasComplex": true,
+      "buildingCount": 33,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2208-4590": {
+      "hasComplex": true,
+      "buildingCount": 57,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2208-4608": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2208-4674": {
+      "hasComplex": true,
+      "buildingCount": 218,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2208-4675": {
+      "hasComplex": true,
+      "buildingCount": 72,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2208-4753": {
+      "hasComplex": true,
+      "buildingCount": 35,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2208-4903": {
+      "hasComplex": true,
+      "buildingCount": 26,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2208-5041": {
+      "hasComplex": true,
+      "buildingCount": 44,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2209-5111": {
+      "hasComplex": true,
+      "buildingCount": 82,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2209-5273": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2209-5291": {
+      "hasComplex": true,
+      "buildingCount": 162,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2209-5359": {
+      "hasComplex": true,
+      "buildingCount": 23,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2209-5389": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2209-5494": {
+      "hasComplex": true,
+      "buildingCount": 242,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2209-5495": {
+      "hasComplex": true,
+      "buildingCount": 290,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2210-5626": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2210-5659": {
+      "hasComplex": true,
+      "buildingCount": 49,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2210-5889": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2211-6083": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2211-6124": {
+      "hasComplex": true,
+      "buildingCount": 71,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2211-6191": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2211-6215": {
+      "hasComplex": true,
+      "buildingCount": 41,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2211-6287": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2211-6298": {
+      "hasComplex": true,
+      "buildingCount": 82,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2211-6460": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2211-6571": {
+      "hasComplex": true,
+      "buildingCount": 42,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2212-6763": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2212-6842": {
+      "hasComplex": true,
+      "buildingCount": 105,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2212-6843": {
+      "hasComplex": true,
+      "buildingCount": 134,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2212-6846": {
+      "hasComplex": true,
+      "buildingCount": 100,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2212-6849": {
+      "hasComplex": true,
+      "buildingCount": 104,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2212-6852": {
+      "hasComplex": true,
+      "buildingCount": 24,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2212-7048": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2301-0126": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2301-0161": {
+      "hasComplex": true,
+      "buildingCount": 83,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2302-0378": {
+      "hasComplex": true,
+      "buildingCount": 302,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2302-0462": {
+      "hasComplex": true,
+      "buildingCount": 52,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2302-0463": {
+      "hasComplex": true,
+      "buildingCount": 103,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2302-0467": {
+      "hasComplex": true,
+      "buildingCount": 73,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2302-0494": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2302-0515": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2302-0604": {
+      "hasComplex": true,
+      "buildingCount": 153,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2302-0778": {
+      "hasComplex": true,
+      "buildingCount": 76,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2303-0800": {
+      "hasComplex": true,
+      "buildingCount": 166,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2303-0848": {
+      "hasComplex": true,
+      "buildingCount": 177,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2303-0883": {
+      "hasComplex": true,
+      "buildingCount": 14,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2303-1174": {
+      "hasComplex": true,
+      "buildingCount": 39,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2303-1186": {
+      "hasComplex": true,
+      "buildingCount": 121,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2304-1243": {
+      "hasComplex": true,
+      "buildingCount": 77,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2304-1244": {
+      "hasComplex": true,
+      "buildingCount": 175,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2304-1269": {
+      "hasComplex": true,
+      "buildingCount": 39,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2304-1364": {
+      "hasComplex": true,
+      "buildingCount": 104,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2304-1398": {
+      "hasComplex": true,
+      "buildingCount": 43,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2304-1421": {
+      "hasComplex": true,
+      "buildingCount": 41,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2304-1430": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2304-1530": {
+      "hasComplex": true,
+      "buildingCount": 48,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2304-1556": {
+      "hasComplex": true,
+      "buildingCount": 22,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2304-1562": {
+      "hasComplex": true,
+      "buildingCount": 8,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2305-1719": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2305-1725": {
+      "hasComplex": true,
+      "buildingCount": 41,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2305-1793": {
+      "hasComplex": true,
+      "buildingCount": 49,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2305-1794": {
+      "hasComplex": true,
+      "buildingCount": 27,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2305-1889": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2306-2163": {
+      "hasComplex": true,
+      "buildingCount": 105,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2306-2367": {
+      "hasComplex": true,
+      "buildingCount": 26,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2307-2403": {
+      "hasComplex": true,
+      "buildingCount": 34,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2307-2472": {
+      "hasComplex": true,
+      "buildingCount": 25,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2307-2474": {
+      "hasComplex": true,
+      "buildingCount": 40,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2307-2513": {
+      "hasComplex": true,
+      "buildingCount": 25,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2307-2632": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2307-2703": {
+      "hasComplex": true,
+      "buildingCount": 52,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2307-2735": {
+      "hasComplex": true,
+      "buildingCount": 73,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2308-2764": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2308-2831": {
+      "hasComplex": true,
+      "buildingCount": 39,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2308-2891": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2308-2961": {
+      "hasComplex": true,
+      "buildingCount": 65,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2309-3155": {
+      "hasComplex": true,
+      "buildingCount": 82,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2309-3420": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2309-3449": {
+      "hasComplex": true,
+      "buildingCount": 35,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2310-3536": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2310-3547": {
+      "hasComplex": true,
+      "buildingCount": 45,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2310-3718": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2310-3747": {
+      "hasComplex": true,
+      "buildingCount": 24,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2310-3755": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2310-3787": {
+      "hasComplex": true,
+      "buildingCount": 61,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2311-3810": {
+      "hasComplex": true,
+      "buildingCount": 438,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2311-3969": {
+      "hasComplex": true,
+      "buildingCount": 76,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2311-4001": {
+      "hasComplex": true,
+      "buildingCount": 18,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2311-4074": {
+      "hasComplex": true,
+      "buildingCount": 56,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2311-4076": {
+      "hasComplex": true,
+      "buildingCount": 56,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2312-4180": {
+      "hasComplex": true,
+      "buildingCount": 68,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2312-4183": {
+      "hasComplex": true,
+      "buildingCount": 63,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2312-4359": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2312-4405": {
+      "hasComplex": true,
+      "buildingCount": 33,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2312-4406": {
+      "hasComplex": true,
+      "buildingCount": 41,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2401-0071": {
+      "hasComplex": true,
+      "buildingCount": 43,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2401-0181": {
+      "hasComplex": true,
+      "buildingCount": 96,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2401-0286": {
+      "hasComplex": true,
+      "buildingCount": 71,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2402-0382": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2402-0423": {
+      "hasComplex": true,
+      "buildingCount": 173,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2402-0467": {
+      "hasComplex": true,
+      "buildingCount": 16,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2402-0544": {
+      "hasComplex": true,
+      "buildingCount": 1,
+      "source": "dxf_extraction(m-RAPA-2402-0544.dxf 옥외배치도)",
+      "hasPlan": false
+    },
+    "m-RAPA-2403-0883": {
+      "hasComplex": true,
+      "buildingCount": 266,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2404-0904": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2405-1502": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2405-1516": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2406-1649": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2406-1750": {
+      "hasComplex": true,
+      "buildingCount": 13,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2407-1893": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2407-1956": {
+      "hasComplex": true,
+      "buildingCount": 47,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2407-1978": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2407-1997": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2408-2237": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2409-2568": {
+      "hasComplex": true,
+      "buildingCount": 49,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2410-2977": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2410-2982": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2410-2983": {
+      "hasComplex": true,
+      "buildingCount": 37,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2410-2984": {
+      "hasComplex": true,
+      "buildingCount": 39,
+      "source": "complex_polygon+buffer0.0015",
+      "hasPlan": false
+    },
+    "m-RAPA-2411-3071": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2411-3075": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2412-3487": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2502-0296": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2503-0787": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2507-1826": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2508-2083": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2509-2393": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "m-RAPA-2510-2861": {
+      "hasComplex": false,
+      "buildingCount": 0,
+      "source": "none",
+      "hasPlan": false
+    },
+    "ori-m-RAPA-2202-0846": {
+      "hasComplex": true,
+      "buildingCount": 11,
+      "source": "pdf_extraction",
+      "hasPlan": false
+    }
+  }
+}

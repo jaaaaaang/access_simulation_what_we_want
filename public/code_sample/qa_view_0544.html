@@ -1,0 +1,20 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>m-RAPA-2402-0544</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>html,body,#map{height:100%;margin:0}#p{position:absolute;top:10px;right:10px;z-index:1000;background:#fff;padding:10px;border-radius:8px;font:13px sans-serif;box-shadow:0 1px 6px rgba(0,0,0,.3)}
+.lb{font-weight:700;font-size:11px;text-shadow:0 0 3px #fff,0 0 3px #fff}</style></head><body>
+<div id="map"></div><div id="p"><b>m-RAPA-2402-0544</b><br>투명도 <input id="op" type="range" min="0" max="100" value="55">
+<br><label><input id="sat" type="checkbox"> 위성</label></div><script>
+const d={"rapaKey": "m-RAPA-2402-0544", "queriedAt": "2026-08-29T00:13:12.981996+00:00", "complex": {"bld_cplx_inf_id": null, "cplx_scl_nm": "인천 송도 스카이 루리안 아파트", "polygon": [[13195894.3, -25915368.3], [13227464.3, -25915368.3], [13227464.3, -25877288.3], [13195894.3, -25877288.3], [13195894.3, -25915368.3]], "area_m2": 1202.2}, "buildingSource": "dxf_extraction(m-RAPA-2402-0544.dxf 옥외배치도)", "bufferDeg": null, "buildings": [{"ciss_bld_cd": null, "bld_nm": "1동", "floors_above": 10, "floors_below": null, "height": 29.0, "height_note": "estimated: floors_above x 2.9m", "is_duct_building": false, "duct_marker_count": 0, "rooftop_repeater_count": 0, "floor_marks": ["2F", "10F"], "center": [13204617.8, -25897068.7], "polygon": [[13234179.3, -25883128.3], [13221179.3, -25883128.3], [13220979.3, -25882928.3], [13221029.3, -25881978.3], [13221379.3, -25881978.3], [13220979.3, -25881978.3], [13220979.3, -25882928.3], [13220729.3, -25883128.3], [13195879.3, -25883128.3], [13195079.3, -25887878.3], [13195079.3, -25897878.3], [13194879.3, -25897928.3], [13195079.3, -25898128.3], [13195079.3, -25899078.3], [13194879.3, -25899278.3], [13195079.3, -25899328.3], [13195079.3, -25904178.3], [13194879.3, -25904228.3], [13195079.3, -25904428.3], [13195079.3, -25905378.3], [13194879.3, -25905578.3], [13195079.3, -25905628.3], [13195079.3, -25911778.3], [13189129.3, -25911828.3], [13189129.3, -25923478.3], [13234179.3, -25923478.3], [13234179.3, -25883128.3]], "footprint_area_m2": 1645.2}], "skipped": false, "skipReason": null, "stats": {"total": 1, "inComplex": 1, "neighbors": 0, "duct_buildings": 0, "rooftop_antennas": 0}, "georeference": null, "_edit": {"source": "rapa-dxf-extract", "editedAt": "2026-08-29T00:13:12.981996+00:00", "buildingCount": 1}};
+const map=L.map('map');
+const osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+const esri=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
+sat.onchange=e=>{e.target.checked?(map.removeLayer(osm),esri.addTo(map)):(map.removeLayer(esri),osm.addTo(map))};
+const g=L.featureGroup().addTo(map);
+L.polygon(d.complex.polygon.map(p=>[p[1],p[0]]),{color:'#c40',weight:3,fill:false,dashArray:'8 5'}).addTo(g);
+const col=f=>f>=22?'#c62828':f>=20?'#ef6c00':f>=13?'#2e7d32':'#1565c0';
+d.buildings.forEach(b=>{const pl=L.polygon(b.polygon.map(q=>[q[1],q[0]]),{color:col(b.floors_above),weight:2,fillColor:col(b.floors_above),fillOpacity:.55}).addTo(g);
+pl.bindPopup(`<b>${b.bld_nm}</b><br>${b.floors_above}F/B${b.floors_below}<br>중계장치 ${b.rooftop_repeater_count} · 관로동 ${b.is_duct_building?'예':'아니오'}`);
+L.marker([b.center[1],b.center[0]],{icon:L.divIcon({className:'lb',html:b.bld_nm})}).addTo(g);});
+op.oninput=e=>{const v=e.target.value/100;g.eachLayer(l=>{if(l.setStyle&&l.options.fillOpacity!==undefined)l.setStyle({fillOpacity:v})})};
+map.fitBounds(g.getBounds().pad(.15));</script></body></html>

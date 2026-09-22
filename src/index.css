@@ -1,62 +1,602 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 @import "tailwindcss";
+@plugin "daisyui";
 
-@theme {
-  --color-bg-main: #111214;
-  --color-bg-panel: #1a1c1e;
-  --color-bg-accent: #2d3136;
-  --color-text-primary: #e0e0e0;
-  --color-text-secondary: #9aa0a6;
-  --color-accent: #00e5ff;
-  --color-warning: #ffb300;
-  --color-success: #00e676;
-  --color-border-color: #3c4043;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+/* =========================================================================
+   디자인 토큰 — Cyber / Engineering HUD & Studio System
+   -------------------------------------------------------------------------
+   다크 모드: Deep Obsidian Tactical Cyber HUD (#0B0E14, #111622 + #00E5FF)
+   라이트 모드: Precision Architectural CAD Studio (#F8FAFC, #FFFFFF + #0066FF)
+   ========================================================================= */
+
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* 표면 사다리 (Deep Obsidian Slate) */
+  --canvas-void:   #080A0F;
+  --bg-app:        #0B0E14;
+  --surface-1:     #111622;   /* 패널 · 상단바 · 레일 */
+  --surface-2:     #171F2E;   /* 카드 · 입력 · 드롭다운 */
+  --surface-3:     #1F293D;   /* 호버 · 활성 영역 */
+  --line:          rgba(0, 229, 255, 0.10);
+  --line-strong:   rgba(0, 229, 255, 0.22);
+
+  /* 잉크 */
+  --ink-1:         #F0F6FC;
+  --ink-2:         #8B9BB4;
+  --ink-3:         #4E5E78;
+
+  /* 액센트 — Electric Cyber Cyan */
+  --accent:        #00E5FF;
+  --accent-hover:  #38EFFF;
+  --accent-fill:   #00B4D8;
+  --accent-on-fill:#04111E;
+  --accent-soft:   rgba(0, 229, 255, 0.12);
+  --accent-line:   rgba(0, 229, 255, 0.45);
+
+  /* UI 디테일 */
+  --panel-glass:   rgba(17, 22, 34, 0.88);
+  --topbar-glass:  rgba(17, 22, 34, 0.92);
+  --rail-bg:       linear-gradient(180deg, #0F1420 0%, #0A0E17 100%);
+  --logo-bg:       linear-gradient(135deg, #00E5FF 0%, #0077FE 100%);
+  --logo-ink:      #04111E;
+  --topbar-rim:    linear-gradient(90deg, transparent, #00E5FF 30%, #00F5A0 70%, transparent);
+  --grid-line:     rgba(0, 229, 255, 0.035);
+
+  --shadow:        0 12px 36px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 229, 255, 0.08);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* 표면 사다리 (Crisp Architectural Studio Slate) */
+  --canvas-void:   #E2E8F0;
+  --bg-app:        #F8FAFC;
+  --surface-1:     #FFFFFF;   /* 패널 · 상단바 · 레일 */
+  --surface-2:     #F1F5F9;   /* 카드 · 입력 · 드롭다운 */
+  --surface-3:     #E2E8F0;   /* 호버 · 활성 영역 */
+  --line:          rgba(15, 23, 42, 0.08);
+  --line-strong:   rgba(15, 23, 42, 0.16);
+
+  /* 잉크 (가독성 높은 선명한 다크 네이비/슬레이트) */
+  --ink-1:         #0F172A;
+  --ink-2:         #475569;
+  --ink-3:         #94A3B8;
+
+  /* 액센트 — Precision Tech Cobalt Blue */
+  --accent:        #0066FF;
+  --accent-hover:  #0052CC;
+  --accent-fill:   #0066FF;
+  --accent-on-fill:#FFFFFF;
+  --accent-soft:   rgba(0, 102, 255, 0.08);
+  --accent-line:   rgba(0, 102, 255, 0.35);
+
+  /* UI 디테일 */
+  --panel-glass:   rgba(255, 255, 255, 0.92);
+  --topbar-glass:  rgba(255, 255, 255, 0.95);
+  --rail-bg:       linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+  --logo-bg:       linear-gradient(135deg, #0066FF 0%, #00C2FF 100%);
+  --logo-ink:      #FFFFFF;
+  --topbar-rim:    linear-gradient(90deg, transparent, #0066FF 30%, #00C2FF 70%, transparent);
+  --grid-line:     rgba(0, 102, 255, 0.04);
+
+  --shadow:        0 4px 20px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+/* -------------------------------------------------------------------------
+   데이터 및 엔지니어링 상태 색상
+   ------------------------------------------------------------------------- */
+:root {
+  --d-v1:    #00A3FF;
+  --d-v2:    #60C5FF;
+  --d-site:  #00D084;
+  --d-inert: #94A3B8;
+  --d-case:  rgba(6, 9, 15, 0.95);
+
+  --d-w1:     2.6;
+  --d-w2:     2.2;
+  --d-w-c:    1.4;
+  --d-case-w: 1.6;
+
+  /* 캔버스 HUD 오버레이 */
+  --canvas-ink-1: var(--ink-1);
+  --canvas-ink-2: var(--ink-2);
+  --canvas-glass: var(--surface-1);
+  --canvas-line:  var(--line-strong);
+
+  /* 상태 */
+  --st-good: #00D084;
+  --st-warn: #F59E0B;
+  --st-crit: #EF4444;
+
+  /* 컨트롤 반경 */
+  --r-ctl:  6px;
+  --r-btn:  8px;
+  --r-card: 10px;
+}
+
+/* =========================================================================
+   Tailwind 매핑
+   ========================================================================= */
+@theme inline {
+  --color-bg-main:        var(--bg-app);
+  --color-bg-panel:       var(--surface-1);
+  --color-bg-accent:      var(--surface-2);
+  --color-text-primary:   var(--ink-1);
+  --color-text-secondary: var(--ink-2);
+  --color-text-muted:     var(--ink-3);
+  --color-accent:         var(--accent);
+  --color-accent-ink:     var(--accent-on-fill);
+  --color-warning:        var(--st-warn);
+  --color-success:        var(--st-good);
+  --color-error:          var(--st-crit);
+  --color-border-color:   var(--line-strong);
+
+  --color-zinc-950: var(--bg-app);
+  --color-zinc-900: var(--surface-1);
+  --color-zinc-800: var(--surface-2);
+  --color-zinc-700: var(--surface-3);
+  --color-zinc-600: var(--ink-3);
+  --color-zinc-500: var(--ink-3);
+  --color-zinc-400: var(--ink-2);
+  --color-zinc-300: var(--ink-2);
+  --color-zinc-200: var(--ink-1);
+  --color-zinc-100: var(--ink-1);
+  --color-gray-900: var(--surface-1);
+  --color-gray-800: var(--surface-2);
+  --color-gray-700: var(--surface-3);
+  --color-gray-500: var(--ink-3);
+  --color-gray-400: var(--ink-2);
+  --color-gray-300: var(--ink-1);
+  --color-gray-100: var(--ink-1);
+  --color-slate-800: var(--surface-2);
+  --color-slate-400: var(--ink-2);
+  --color-slate-200: var(--ink-1);
+
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', Consolas, monospace;
+}
+
+/* =========================================================================
+   --shell-* 별칭 호환용
+   ========================================================================= */
+:root {
+  --shell-bg-app:        var(--bg-app);
+  --shell-bg-surface:    var(--surface-1);
+  --shell-bg-muted:      var(--surface-2);
+  --shell-bg-segment:    var(--surface-2);
+  --shell-ink:           var(--ink-1);
+  --shell-ink-2:         var(--ink-2);
+  --shell-ink-3:         var(--ink-3);
+  --shell-ink-4:         var(--ink-3);
+  --shell-ink-dark-sub:  var(--ink-3);
+  --shell-ink-dark-mute: var(--ink-2);
+  --shell-accent:        var(--accent);
+  --shell-accent-deep:   var(--accent-fill);
+  --shell-accent-soft:   var(--accent-soft);
+  --shell-success:       var(--st-good);
+  --shell-info:          var(--d-v1);
+  --shell-danger:        var(--st-crit);
+  --shell-line:          var(--line);
+  --shell-line-strong:   var(--line-strong);
+
+  --shell-font-display: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+  --shell-font-ui:      'Plus Jakarta Sans', sans-serif;
+  --shell-font-mono:    'JetBrains Mono', monospace;
+
+  --shell-r-sm: var(--r-ctl);  --shell-r-md: var(--r-btn);  --shell-r-9:  var(--r-btn);
+  --shell-r-10: var(--r-btn);  --shell-r-11: var(--r-card); --shell-r-12: var(--r-card);
+  --shell-r-lg: var(--r-card); --shell-r-xl: var(--r-card); --shell-r-pill: 999px;
 }
 
 body {
-  background-color: var(--color-bg-main);
-  color: var(--color-text-primary);
+  background-color: var(--bg-app);
+  color: var(--ink-1);
+  font-family: var(--shell-font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-.map-container {
-  background: #000;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-  background-size: 30px 30px;
+/* =========================================================================
+   텍스트 선택
+   ========================================================================= */
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #3c4043;
-  border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #4f5255;
+/* 수치는 예외 없이 JetBrains Mono + tabular */
+.font-mono, .num {
+  font-family: var(--shell-font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
-.markdown-body {
-  line-height: 1.6;
+/* =========================================================================
+   App Shell
+   ========================================================================= */
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-app);
+  font-family: var(--shell-font-ui);
+  color: var(--ink-1);
 }
-.markdown-body ul {
-  list-style-type: disc;
-  padding-left: 1.5rem;
-  margin-bottom: 1rem;
+
+/* =========================================================================
+   Icon Rail
+   ========================================================================= */
+.icon-rail {
+  width: 76px;
+  flex-shrink: 0;
+  background: var(--rail-bg);
+  border-right: 1px solid var(--line-strong);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 0;
+  box-shadow: 2px 0 16px rgba(0, 0, 0, 0.08);
+  position: relative;
+  z-index: 10;
 }
-.markdown-body li {
-  margin-bottom: 0.5rem;
+.icon-rail .rail-logo {
+  width: 42px; height: 42px; border-radius: 10px;
+  background: var(--logo-bg);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 24px; flex-shrink: 0; color: var(--logo-ink);
+  box-shadow: 0 2px 14px var(--accent-soft), inset 0 0 8px rgba(255, 255, 255, 0.3);
+  animation: hudLogoPulse 3.5s ease-in-out infinite;
+  transition: all .25s ease;
 }
-.markdown-body strong {
-  color: var(--color-accent);
+.icon-rail .rail-logo:hover {
+  transform: scale(1.06);
 }
-.markdown-body h1, .markdown-body h2, .markdown-body h3 {
-  color: #fff;
+.icon-rail .rail-buttons { display: flex; flex-direction: column; gap: 8px; }
+.icon-rail .rail-spacer { flex: 1; }
+
+/* ---- 레일 버튼 ---- */
+.rail-btn {
+  width: 52px; height: 56px; border-radius: var(--r-card);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; border: 1px solid transparent; cursor: pointer;
+  transition: all .2s cubic-bezier(0.22, 1, 0.36, 1);
+  background: transparent; color: var(--ink-3);
+  position: relative;
+}
+.rail-btn span {
+  font-size: 10px;
   font-weight: 600;
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
+  letter-spacing: 0.04em;
+  font-family: var(--shell-font-display);
+}
+.rail-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-line);
+  box-shadow: 0 0 14px var(--accent-soft);
+}
+.rail-btn.active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+  box-shadow: 0 0 8px var(--accent);
+}
+.rail-btn:not(.active):hover {
+  background: var(--surface-2);
+  color: var(--ink-1);
+  border-color: var(--line);
+  transform: translateY(-2px);
+}
+.rail-btn:not(.active):active { transform: translateY(0); }
+.rail-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ---- 가이드 상시 강조 버튼 (Radiant Amber / Warm Gold) ---- */
+@keyframes guide-btn-breathe {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 179, 0, 0.25), inset 0 0 6px rgba(255, 179, 0, 0.08);
+    border-color: rgba(255, 179, 0, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 179, 0, 0.55), inset 0 0 12px rgba(255, 179, 0, 0.18);
+    border-color: rgba(255, 179, 0, 0.85);
+  }
+}
+.rail-btn-guide {
+  background: rgba(255, 179, 0, 0.10) !important;
+  color: #ffb300 !important;
+  border: 1px solid rgba(255, 179, 0, 0.45) !important;
+  animation: guide-btn-breathe 2.8s ease-in-out infinite;
+}
+.rail-btn-guide:hover {
+  background: rgba(255, 179, 0, 0.22) !important;
+  color: #ffe082 !important;
+  border-color: rgba(255, 179, 0, 0.9) !important;
+  box-shadow: 0 0 24px rgba(255, 179, 0, 0.65), inset 0 0 14px rgba(255, 179, 0, 0.25) !important;
+  transform: translateY(-2px);
+}
+.rail-btn-guide.active {
+  background: rgba(255, 179, 0, 0.28) !important;
+  color: #fff9c4 !important;
+  border-color: #ffb300 !important;
+  box-shadow: 0 0 24px rgba(255, 179, 0, 0.6) !important;
+}
+.rail-btn-guide.active::before {
+  background: #ffb300 !important;
+  box-shadow: 0 0 10px #ffb300 !important;
+}
+
+/* =========================================================================
+   Step Panel & Results Drawer
+   ========================================================================= */
+.step-panel {
+  width: 340px; flex-shrink: 0;
+  background: var(--panel-glass);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border-right: 1px solid var(--line-strong);
+  overflow-y: auto;
+  animation: shellSlideIn .3s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+}
+.step-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-fill), transparent);
+  z-index: 1;
+}
+.step-panel-header { padding: 20px 20px 6px; }
+.step-panel-eyebrow {
+  font-family: var(--shell-font-display); font-size: 11px; letter-spacing: .12em;
+  color: var(--accent); text-transform: uppercase; font-weight: 700;
+}
+.step-panel-title {
+  font-family: var(--shell-font-display);
+  font-size: 17px; font-weight: 700; color: var(--ink-1); margin-top: 4px;
+  letter-spacing: -0.01em; line-height: 1.3;
+}
+.step-panel-body { padding: 14px 20px 24px; }
+
+.results-drawer {
+  width: 380px; flex-shrink: 0;
+  background: var(--panel-glass);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border-left: 1px solid var(--line-strong);
+  overflow-y: auto;
+  animation: shellSlideInRight .3s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+}
+.results-drawer::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 100%; height: 2px;
+  background: linear-gradient(270deg, var(--accent), var(--accent-fill), transparent);
+  z-index: 1;
+}
+
+.shell-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+/* =========================================================================
+   상단바
+   ========================================================================= */
+.shell-topbar {
+  flex-shrink: 0;
+  background: var(--topbar-glass);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--line-strong);
+  display: flex; flex-direction: column; padding: 0 16px;
+  font-family: var(--shell-font-ui); color: var(--ink-1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  position: relative;
+  z-index: 5;
+}
+.shell-topbar::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1.5px;
+  background: var(--topbar-rim);
+}
+.shell-topbar-row {
+  display: flex; align-items: center; gap: 10px;
+  height: 46px; min-width: 0;
+  overflow-x: auto; overflow-y: hidden;
+}
+.shell-topbar-row:has([class*="top-full"]) { overflow: visible; }
+.shell-topbar-row + .shell-topbar-row { border-top: 1px solid var(--line); }
+
+/* ---- 셀렉트 & 입력 ---- */
+.topbar-select {
+  height: 32px; font-size: 12px; font-weight: 500; border-radius: var(--r-ctl);
+  border: 1px solid var(--line-strong); outline: none;
+  background: var(--surface-2); color: var(--ink-1);
+  padding: 0 26px 0 10px; flex-shrink: 0;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%230066FF' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  transition: all .2s ease;
+  cursor: pointer;
+}
+.topbar-select:hover {
+  border-color: var(--accent);
+  background-color: var(--surface-3);
+}
+.topbar-search-input {
+  width: 100%; height: 32px; font-size: 12.5px; border-radius: var(--r-ctl);
+  border: 1px solid var(--line-strong); outline: none;
+  background: var(--surface-2);
+  color: var(--ink-1); caret-color: var(--accent);
+  -webkit-text-fill-color: var(--ink-1);
+  padding: 0 10px 0 32px;
+  transition: all .2s ease;
+}
+.topbar-search-input::placeholder { color: var(--ink-3); -webkit-text-fill-color: var(--ink-3); }
+.topbar-search-input:hover {
+  border-color: var(--accent-line);
+  background-color: var(--surface-3);
+}
+.topbar-select:focus, .topbar-search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* ---- View Tabs ---- */
+.shell-view-tabs {
+  display: flex; background: var(--surface-2); border: 1px solid var(--line-strong);
+  padding: 3px; border-radius: 8px; gap: 3px;
+}
+.shell-view-tab {
+  border: none; background: transparent; padding: 5px 14px; border-radius: 6px;
+  font-size: 12px; font-weight: 600; font-family: var(--shell-font-display);
+  color: var(--ink-2); cursor: pointer;
+  transition: all .2s ease;
+  position: relative;
+}
+.shell-view-tab:hover:not(.active) {
+  color: var(--ink-1);
+  background: var(--surface-3);
+}
+.shell-view-tab.active {
+  background: var(--surface-1); font-weight: 700; color: var(--accent);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+}
+.shell-view-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 50%;
+  transform: translateX(-50%);
+  width: 14px; height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+  box-shadow: 0 0 6px var(--accent);
+}
+
+/* =========================================================================
+   버튼 및 인터랙션 컴포넌트
+   ========================================================================= */
+
+button:not(.rail-btn):not(.shell-view-tab):not(:disabled) {
+  transition: all .2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+button:not(.rail-btn):not(.shell-view-tab):not(:disabled):hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+button:not(.rail-btn):not(.shell-view-tab):not(:disabled):active {
+  transform: translateY(0);
+}
+
+/* ---- 테이블 행 호버 ---- */
+tr { transition: background-color .15s ease; }
+tbody tr:hover > td {
+  background-color: var(--accent-soft);
+}
+tbody tr:hover > td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* ---- 수치 Mono Glow ---- */
+.font-mono.text-lg,
+.font-mono.text-xl,
+.font-mono.text-2xl {
+  color: var(--ink-1);
+}
+
+/* =========================================================================
+   Keyframes
+   ========================================================================= */
+@keyframes shellSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shellSlideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes hudLogoPulse {
+  0%, 100% {
+    box-shadow: 0 0 14px var(--accent-soft);
+  }
+  50% {
+    box-shadow: 0 0 24px var(--accent-soft);
+  }
+}
+
+/* =========================================================================
+   Map Container
+   ========================================================================= */
+.map-container {
+  background: var(--canvas-void);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 32px 32px;
+  position: relative;
+}
+
+/* =========================================================================
+   Scrollbar
+   ========================================================================= */
+.custom-scrollbar::-webkit-scrollbar { width: 5px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--line-strong); border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
+
+.step-panel::-webkit-scrollbar,
+.results-drawer::-webkit-scrollbar { width: 5px; }
+.step-panel::-webkit-scrollbar-track,
+.results-drawer::-webkit-scrollbar-track { background: transparent; }
+.step-panel::-webkit-scrollbar-thumb,
+.results-drawer::-webkit-scrollbar-thumb {
+  background: var(--line-strong); border-radius: 10px;
+}
+.step-panel::-webkit-scrollbar-thumb:hover,
+.results-drawer::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-3);
+}
+
+/* =========================================================================
+   모달 오버레이
+   ========================================================================= */
+[class*="fixed"][class*="inset-0"][class*="bg-black"] {
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+
+/* =========================================================================
+   포커스 가시성
+   ========================================================================= */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* =========================================================================
+   J.A.R.V.I.S. Guide Tour Spotlight Animation
+   ========================================================================= */
+@keyframes tour-spotlight-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.78),
+                0 0 14px var(--accent),
+                0 0 28px rgba(0, 229, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.78),
+                0 0 24px var(--accent),
+                0 0 48px rgba(0, 229, 255, 0.35);
+  }
 }

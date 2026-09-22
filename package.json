@@ -1,15 +1,24 @@
 {
-  "name": "react-example",
+  "name": "eng-apt-cover-windows",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=build/server.js",
+    "start": "node build/server.js",
     "preview": "vite preview",
-    "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "clean": "rm -rf build dist build/server.js*",
+    "lint": "tsc --noEmit",
+    "sim:single": "tsx scripts/losRunner.ts",
+    "batch:run": "tsx scripts/batchCli.ts",
+    "batch:runner": "tsx scripts/losRunner.ts",
+    "test:batch": "tsx scripts/testBatchE2E.ts",
+    "tunnel": "./run_with_tunnel.sh",
+    "los:sync": "node scripts/syncLosOutputs.mjs",
+    "test:buffer": "tsx scripts/testAdjacentBuffer.mjs",
+    "test:e2e": "tsx scripts/testLosE2E.mjs",
+    "export:csv": "python3 scripts/exportTotalListCsv.py"
   },
   "dependencies": {
     "@google/genai": "^1.50.1",
@@ -21,7 +30,6 @@
     "jszip": "^3.10.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
-    "node-fetch": "^3.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
@@ -32,11 +40,12 @@
     "@types/express": "^4.17.21",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^22.14.0",
+    "@types/react-dom": "^19.2.4",
     "autoprefixer": "^10.4.21",
+    "daisyui": "^5.7.28",
     "esbuild": "^0.28.1",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "typescript": "~5.8.2"
   }
 }

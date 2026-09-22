@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 베란다 세팅 검증 뷰어 — 건물 원본 vs 적용 결과</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+body { background:#0f1117; color:#e6edf3; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+header { background:#161b22; border-bottom:1px solid #30363d; padding:10px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+h1 { font-size:16px; font-weight:700; }
+.badge { background:#1f6feb; color:#fff; font-size:11px; font-weight:600; padding:2px 8px; border-radius:12px; }
+.controls { display:flex; align-items:center; gap:14px; font-size:13px; }
+select { background:#21262d; color:#c9d1d9; border:1px solid #30363d; border-radius:6px; padding:5px 10px; font-size:13px; outline:none; max-width:420px; }
+label.chk { display:flex; align-items:center; gap:5px; color:#8b949e; cursor:pointer; }
+.main { display:flex; flex:1; gap:10px; padding:10px; height:calc(100vh - 54px); }
+.panel { flex:1; background:#161b22; border:1px solid #30363d; border-radius:8px; display:flex; flex-direction:column; overflow:hidden; position:relative; }
+.phead { padding:8px 14px; background:#21262d; border-bottom:1px solid #30363d; font-size:13px; font-weight:600; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.stats { display:flex; gap:10px; font-size:11.5px; font-weight:400; }
+.canvas-wrap { flex:1; position:relative; }
+canvas { width:100%; height:100%; display:block; }
+.legend { position:absolute; bottom:10px; left:10px; background:rgba(22,27,34,.92); border:1px solid #30363d; border-radius:6px; padding:7px 10px; font-size:11px; display:flex; flex-direction:column; gap:5px; pointer-events:none; }
+.lrow { display:flex; align-items:center; gap:7px; }
+.lline { width:18px; height:3px; border-radius:2px; }
+.tooltip { position:fixed; display:none; background:#1f242c; border:1px solid #58a6ff; border-radius:6px; padding:6px 10px; font-size:12px; color:#fff; pointer-events:none; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,.5); white-space:pre; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏢 AI 베란다 세팅 검증 뷰어 <span class="badge">건물 원본 vs 적용 결과</span></h1>
+  <div class="controls">
+    <label class="chk"><input type="checkbox" id="lowriseMask" checked onchange="render()"> 저층 부속동(≤2층) 마스킹 (우측)</label>
+    <label>단지:</label>
+    <select id="complexSelect" onchange="loadAndRender()"></select>
+  </div>
+</header>
+<div class="main">
+  <div class="panel">
+    <div class="phead"><span>[좌] 건물 원본 (베란다 미적용)</span><div class="stats" id="statsOld"></div></div>
+    <div class="canvas-wrap"><canvas id="cvOld"></canvas>
+      <div class="legend">
+        <div class="lrow"><div class="lline" style="background:#B9B3A6;height:2px"></div>건물 외곽</div>
+        <div class="lrow"><div class="lline" style="background:#5A6068;height:2px"></div>단지 외 건물</div>
+        <div class="lrow"><div class="lline" style="background:#a855f7;height:2px"></div>단지 경계</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="phead"><span>[우] 베란다 자동 분류 적용 (v2.2 relBand + perp_cap)</span><div class="stats" id="statsNew"></div></div>
+    <div class="canvas-wrap"><canvas id="cvNew"></canvas>
+      <div class="legend">
+        <div class="lrow"><div class="lline" style="background:#3987E5;height:4px"></div>1차 베란다</div>
+        <div class="lrow"><div class="lline" style="background:#8FBEF2;height:3px"></div>2차 베란다</div>
+        <div class="lrow"><div class="lline" style="background:#9A9690;height:2px"></div>콘크리트</div>
+        <div class="lrow"><div class="lline" style="background:#a855f7;height:2px"></div>단지 경계</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ===== v2 엔진 (src/lib/verandaAi.ts 트랜스파일 동일본 - 파리티 테스트 통과) =====
+const VerandaV2 = (() => { const exports = {}; "use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.metersPerPxFromGeoMapping = metersPerPxFromGeoMapping;
+exports.isPointInPolygon = isPointInPolygon;
+exports.classifyBuildingWalls = classifyBuildingWalls;
+exports.isLowRise = isLowRise;
+exports.generateAutoVerandas = generateAutoVerandas;
+/** App.tsx의 geoMapping 상태로부터 metersPerPx 옵션 산출 (toCanvas 역변환) */
+function metersPerPxFromGeoMapping(m) {
+    const midLat = m.minLat + m.latRange / 2;
+    const M_PER_DEG_LAT = 111320;
+    const mPerDegLon = M_PER_DEG_LAT * Math.cos((midLat * Math.PI) / 180);
+    return {
+        metersPerPxX: (m.lonRange * mPerDegLon) / (m.cWidth * 0.8),
+        metersPerPxY: (m.latRange * M_PER_DEG_LAT) / (m.cHeight * 0.8),
+    };
+}
+/**
+ * 단지 폴리곤(보라색) 내부에 점이 포함되는지 판정 (Ray Casting)
+ */
+function isPointInPolygon(p, poly) {
+    const n = poly.length;
+    let inside = false;
+    let p1 = poly[0];
+    for (let i = 0; i <= n; i++) {
+        const p2 = poly[i % n];
+        if (p.y > Math.min(p1.y, p2.y)) {
+            if (p.y <= Math.max(p1.y, p2.y)) {
+                if (p.x <= Math.max(p1.x, p2.x)) {
+                    if (p1.y !== p2.y) {
+                        const xinters = (p.y - p1.y) * (p2.x - p1.x) / (p2.y - p1.y) + p1.x;
+                        if (p1.x === p2.x || p.x <= xinters) {
+                            inside = !inside;
+                        }
+                    }
+                }
+            }
+        }
+        p1 = p2;
+    }
+    return inside;
+}
+function angDiff(a, b) {
+    const d = Math.abs(a - b) % 360;
+    return Math.min(d, 360 - d);
+}
+function polyAreaSigned(pts) {
+    const n = pts.length;
+    let s = 0;
+    for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        s += pts[i].x * pts[j].y - pts[j].x * pts[i].y;
+    }
+    return s * 0.5; // CCW > 0
+}
+function convexHull(pts) {
+    const P = [...new Map(pts.map(p => [`${p.x},${p.y}`, p])).values()]
+        .sort((a, b) => (a.x - b.x) || (a.y - b.y));
+    if (P.length < 3)
+        return P;
+    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const lower = [];
+    for (const p of P) {
+        while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0)
+            lower.pop();
+        lower.push(p);
+    }
+    const upper = [];
+    for (let i = P.length - 1; i >= 0; i--) {
+        const p = P[i];
+        while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0)
+            upper.pop();
+        upper.push(p);
+    }
+    return [...lower.slice(0, -1), ...upper.slice(0, -1)];
+}
+function minAreaObb(pts) {
+    const hull = convexHull(pts);
+    if (hull.length < 3)
+        return null;
+    let best = null;
+    const m = hull.length;
+    for (let i = 0; i < m; i++) {
+        const a = hull[i], b = hull[(i + 1) % m];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const L = Math.hypot(dx, dy);
+        if (L < 1e-9)
+            continue;
+        const ux = dx / L, uy = dy / L;
+        let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+        for (const p of hull) {
+            const u = p.x * ux + p.y * uy;
+            const v = -p.x * uy + p.y * ux;
+            if (u < minU)
+                minU = u;
+            if (u > maxU)
+                maxU = u;
+            if (v < minV)
+                minV = v;
+            if (v > maxV)
+                maxV = v;
+        }
+        const w = maxU - minU, h = maxV - minV;
+        if (!best || w * h < best.area) {
+            const ang = (Math.atan2(uy, ux) * 180 / Math.PI + 180) % 180;
+            best = { area: w * h, w, h, ang };
+        }
+    }
+    if (!best)
+        return null;
+    if (best.w >= best.h) {
+        return { long: best.w, short: best.h, longAxisDeg: best.ang, area: best.area };
+    }
+    return { long: best.h, short: best.w, longAxisDeg: (best.ang + 90) % 180, area: best.area };
+}
+/** open chain RDP 단순화: 유지 인덱스 반환 */
+function rdpIndices(chain, eps) {
+    if (chain.length < 3)
+        return chain.map((_, i) => i);
+    const keep = new Set([0, chain.length - 1]);
+    const stack = [[0, chain.length - 1]];
+    while (stack.length) {
+        const [i0, i1] = stack.pop();
+        if (i1 <= i0 + 1)
+            continue;
+        const x0 = chain[i0].x, y0 = chain[i0].y;
+        const dx = chain[i1].x - x0, dy = chain[i1].y - y0;
+        const L = Math.hypot(dx, dy);
+        let dmax = -1, imax = -1;
+        for (let i = i0 + 1; i < i1; i++) {
+            const px = chain[i].x, py = chain[i].y;
+            const d = L < 1e-9
+                ? Math.hypot(px - x0, py - y0)
+                : Math.abs(dy * (px - x0) - dx * (py - y0)) / L;
+            if (d > dmax) {
+                dmax = d;
+                imax = i;
+            }
+        }
+        if (dmax > eps) {
+            keep.add(imax);
+            stack.push([i0, imax], [imax, i1]);
+        }
+    }
+    return [...keep].sort((a, b) => a - b);
+}
+/** 닫힌 링 단순화: 최원점 쌍 앵커 + 체인별 RDP */
+function simplifyRing(pts, eps) {
+    const n = pts.length;
+    const hull = convexHull(pts);
+    let pa = hull[0] || pts[0], pb = hull[1 % hull.length] || pts[1 % n], bestD = -1;
+    for (let i = 0; i < hull.length; i++) {
+        for (let j = i + 1; j < hull.length; j++) {
+            const d = (hull[i].x - hull[j].x) ** 2 + (hull[i].y - hull[j].y) ** 2;
+            if (d > bestD) {
+                bestD = d;
+                pa = hull[i];
+                pb = hull[j];
+            }
+        }
+    }
+    const nearest = (q) => {
+        let bi = 0, bd = Infinity;
+        for (let k = 0; k < n; k++) {
+            const d = (pts[k].x - q.x) ** 2 + (pts[k].y - q.y) ** 2;
+            if (d < bd) {
+                bd = d;
+                bi = k;
+            }
+        }
+        return bi;
+    };
+    let ia = nearest(pa), ib = nearest(pb);
+    if (ia === ib)
+        ib = (ia + Math.floor(n / 2)) % n;
+    const lo = Math.min(ia, ib), hi = Math.max(ia, ib);
+    const chain1 = pts.slice(lo, hi + 1);
+    const chain2 = [...pts.slice(hi), ...pts.slice(0, lo + 1)];
+    const keep = new Set();
+    rdpIndices(chain1, eps).forEach(i => keep.add(lo + i));
+    rdpIndices(chain2, eps).forEach(i => keep.add((hi + i) % n));
+    return [...keep].sort((a, b) => a - b);
+}
+/**
+ * 건물 폴리곤 외벽을 1차 베란다(First) / 2차 베란다(Second) / 콘크리트(Concrete)로 자동 분류
+ * - 입력 좌표계: Canvas (+x 동, +y 남). 내부적으로 y 반전 + metersPerPx 환산 후 미터계로 처리.
+ */
+function classifyBuildingWalls(poly, opts = {}) {
+    const o = {
+        metersPerPxX: opts.metersPerPxX ?? 1,
+        metersPerPxY: opts.metersPerPxY ?? opts.metersPerPxX ?? 1,
+        forceConcrete: opts.forceConcrete ?? false,
+        rdpEps: opts.rdpEps ?? 1.2,
+        smallFace: opts.smallFace ?? 3.5,
+        capTurn: opts.capTurn ?? 45,
+        capLenMax: opts.capLenMax ?? 17,
+        capDepthRatio: opts.capDepthRatio ?? 1.5,
+        sunBand: opts.sunBand ?? 0.0,
+        relBand: opts.relBand ?? 0.15,
+        perpCap: opts.perpCap ?? true,
+        depthMax: opts.depthMax ?? 17,
+        endWallAng: opts.endWallAng ?? 35,
+        slabFill: opts.slabFill ?? 0.70,
+        slabAspect: opts.slabAspect ?? 2.0,
+        sunAzimuth: opts.sunAzimuth ?? 150,
+    };
+    let src = [...poly];
+    if (src.length >= 2 &&
+        src[0].x === src[src.length - 1].x && src[0].y === src[src.length - 1].y) {
+        src = src.slice(0, -1);
+    }
+    const n = src.length;
+    if (n < 3)
+        return [];
+    // Canvas(+y 남) -> 미터(+y 북) 변환
+    const pts = src.map(p => ({ x: p.x * o.metersPerPxX, y: -p.y * o.metersPerPxY }));
+    const area = polyAreaSigned(pts);
+    const isCcw = area > 0;
+    const obb = minAreaObb(pts);
+    if (!obb)
+        return [];
+    const fill = obb.area > 0 ? Math.abs(area) / obb.area : 0;
+    const aspect = obb.short > 0 ? obb.long / obb.short : 1;
+    const isSlab = fill >= o.slabFill && aspect >= o.slabAspect;
+    // ---- RDP 매크로엣지 ----
+    let keep = simplifyRing(pts, o.rdpEps);
+    if (keep.length < 3)
+        keep = pts.map((_, i) => i);
+    const M0 = keep.length;
+    const macros = [];
+    for (let k = 0; k < M0; k++) {
+        const i0 = keep[k], i1 = keep[(k + 1) % M0];
+        const span = [];
+        let i = i0;
+        while (true) {
+            span.push(i);
+            i = (i + 1) % n;
+            if (i === i1 || span.length > n)
+                break;
+        }
+        const a = pts[i0], b = pts[i1];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const L = Math.hypot(dx, dy);
+        if (L < 1e-9)
+            continue;
+        const nx = isCcw ? dy / L : -dy / L;
+        const ny = isCcw ? -dx / L : dx / L;
+        const azimuth = (Math.atan2(nx, ny) * 180 / Math.PI + 360) % 360;
+        const sunScore = Math.cos((azimuth - o.sunAzimuth) * Math.PI / 180);
+        macros.push({
+            i0, i1, span, p1: a, p2: b,
+            length: L, azimuth, sunScore,
+            normal: { x: nx, y: ny },
+            wallType: null, reason: 'pending',
+        });
+    }
+    const M = macros.length;
+    if (M === 0)
+        return [];
+    // ---- 분류 ----
+    if (o.forceConcrete) {
+        macros.forEach(e => { e.wallType = 'concrete'; e.reason = 'lowrise_mask'; });
+    }
+    else if (isSlab) {
+        // Case A: 판상형 - OBB 장축 법선 기준
+        const normA = (90 - (obb.longAxisDeg + 90) % 360 + 360) % 360;
+        const normB = (normA + 180) % 360;
+        const firstNorm = angDiff(normA, o.sunAzimuth) <= angDiff(normB, o.sunAzimuth) ? normA : normB;
+        const secondNorm = firstNorm === normA ? normB : normA;
+        for (const e of macros) {
+            const dF = angDiff(e.azimuth, firstNorm);
+            const dS = angDiff(e.azimuth, secondNorm);
+            if (Math.min(dF, dS) > o.endWallAng) {
+                e.wallType = 'concrete';
+                e.reason = 'end_wall';
+            }
+            else if (e.length <= o.smallFace) {
+                e.wallType = 'concrete';
+                e.reason = 'small_face';
+            }
+            else if (dF <= dS) {
+                e.wallType = 'first';
+                e.reason = 'front_axis';
+            }
+            else {
+                e.wallType = 'second';
+                e.reason = 'back_axis';
+            }
+        }
+    }
+    else {
+        // Case B: 타워형/Y형/L형 - 국소 수광 + cap 격리 + 배면 페어링
+        const rayInward = (k, t = 0.5) => {
+            const e = macros[k];
+            const mx = e.p1.x + (e.p2.x - e.p1.x) * t;
+            const my = e.p1.y + (e.p2.y - e.p1.y) * t;
+            const dx = -e.normal.x, dy = -e.normal.y;
+            const ox = mx + dx * 0.01, oy = my + dy * 0.01;
+            let bestT = null, bestJ = null;
+            for (let j = 0; j < M; j++) {
+                if (j === k)
+                    continue;
+                for (const i of macros[j].span) {
+                    const x1 = pts[i].x, y1 = pts[i].y;
+                    const x2 = pts[(i + 1) % n].x, y2 = pts[(i + 1) % n].y;
+                    const ex = x2 - x1, ey = y2 - y1;
+                    const den = dx * ey - dy * ex;
+                    if (Math.abs(den) < 1e-12)
+                        continue;
+                    const t = ((x1 - ox) * ey - (y1 - oy) * ex) / den;
+                    const u = ((x1 - ox) * dy - (y1 - oy) * dx) / den;
+                    if (t > 1e-9 && u >= -1e-9 && u <= 1 + 1e-9) {
+                        if (bestT === null || t < bestT) {
+                            bestT = t;
+                            bestJ = j;
+                        }
+                    }
+                }
+            }
+            return { dist: bestT, j: bestJ };
+        };
+        const depthIn = macros.map((_, k) => rayInward(k));
+        const significantNeighbor = (k, step) => {
+            let j = (k + step + M) % M;
+            while (j !== k && macros[j].length <= o.smallFace)
+                j = (j + step + M) % M;
+            return macros[j];
+        };
+        const netConvex = (a, b) => {
+            const v1x = a.p2.x - a.p1.x, v1y = a.p2.y - a.p1.y;
+            const v2x = b.p2.x - b.p1.x, v2y = b.p2.y - b.p1.y;
+            const cr = v1x * v2y - v1y * v2x;
+            return isCcw ? cr > 0 : cr < 0;
+        };
+        // 1-pass: small / cap(마구리) / first
+        macros.forEach((e, k) => {
+            const ps = significantNeighbor(k, -1);
+            const ns = significantNeighbor(k, +1);
+            const tIn = angDiff(ps.azimuth, e.azimuth);
+            const tOut = angDiff(e.azimuth, ns.azimuth);
+            const dIn = depthIn[k].dist;
+            const isCap = tIn >= o.capTurn && tOut >= o.capTurn &&
+                netConvex(ps, e) && netConvex(e, ns) &&
+                e.length <= o.capLenMax &&
+                dIn !== null && dIn >= o.capDepthRatio * e.length;
+            if (e.length <= o.smallFace) {
+                e.wallType = 'concrete';
+                e.reason = 'small_face';
+            }
+            else if (isCap) {
+                e.wallType = 'concrete';
+                e.reason = 'wing_cap';
+            }
+            else if (Math.abs(e.sunScore) < o.relBand) {
+                e.reason = 'rel_pending'; // 경계밴드 — 1.5-pass에서 마주보는 벽과 상대판정
+            }
+            else if (e.sunScore >= o.sunBand) {
+                e.wallType = 'first';
+                e.reason = 'sun_front';
+            }
+        });
+        // 1.5-pass: 경계밴드 상대판정 — 마주보는 장벽 쌍에서 더 수광적인 쪽 = first.
+        // 나이프엣지(60/240° 경계)에서 절대 부호 대신 상대 비교로 동일 유형 건물의 일관성 보장.
+        // 마주볼 상대가 없으면(깊이 초과 등) 기존 절대 규칙으로 폴백해 회귀를 막는다.
+        macros.forEach((e, k) => {
+            if (e.reason !== 'rel_pending')
+                return;
+            const { dist, j } = depthIn[k];
+            const opp = (j !== null && dist !== null && dist <= o.depthMax) ? macros[j] : null;
+            if (opp === null) {
+                if (e.sunScore >= o.sunBand) {
+                    e.wallType = 'first';
+                    e.reason = 'sun_front';
+                }
+                else {
+                    e.wallType = null;
+                    e.reason = 'pending';
+                }
+            }
+            else if (opp.wallType === 'first') {
+                e.wallType = null;
+                e.reason = 'pending'; // 상대가 명확한 전면 -> 나는 배면
+            }
+            else if (e.sunScore > opp.sunScore + 1e-9) {
+                e.wallType = 'first';
+                e.reason = 'rel_front'; // 쌍 중 더 수광적 -> first
+            }
+            else if (e.sunScore < opp.sunScore - 1e-9) {
+                e.wallType = null;
+                e.reason = 'pending'; // 쌍 중 덜 수광적 -> 배면
+            }
+            else {
+                if (e.sunScore >= o.sunBand) {
+                    e.wallType = 'first';
+                    e.reason = 'sun_front';
+                }
+                else {
+                    e.wallType = null;
+                    e.reason = 'pending';
+                }
+            }
+        });
+        // 2-pass: 배면-전면 페어링 (내부 레이 3점 샘플이 depthMax 이내에서 first에 닿아야 second)
+        // 중점 1점 레이는 요철/코너에 걸려 같은 단지 동끼리도 결과가 갈림 (2206-3699 사례)
+        macros.forEach((e, k) => {
+            if (e.wallType !== null)
+                return;
+            let paired = false;
+            for (const t of [0.5, 0.28, 0.72]) {
+                const { dist, j } = t === 0.5 ? depthIn[k] : rayInward(k, t);
+                const ptype = j !== null ? macros[j].wallType : null;
+                if (ptype === 'first' && dist !== null && dist <= o.depthMax) {
+                    paired = true;
+                    break;
+                }
+            }
+            if (paired) {
+                e.wallType = 'second';
+                e.reason = 'paired_back';
+            }
+            else {
+                e.wallType = 'concrete';
+                e.reason = 'unpaired_back';
+            }
+        });
+        // 3-pass: 코어 샌드위치 흡수 (콘크리트 사이 8m 이하 고립면)
+        macros.forEach((e, k) => {
+            if ((e.wallType !== 'first' && e.wallType !== 'second') || e.length > 8)
+                return;
+            const ps = significantNeighbor(k, -1);
+            const ns = significantNeighbor(k, +1);
+            if (ps.wallType === 'concrete' && ns.wallType === 'concrete') {
+                e.wallType = 'concrete';
+                e.reason = 'core_sandwich';
+            }
+        });
+        // 3.5-pass: 수직 마구리(perp-cap) — "자기보다 1.3배 이상 긴 first와 수직(75~105°)·볼록으로
+        // 인접"하고 "내부 관통 깊이가 depthMax를 넘는(뒤에 세대가 없는)" 짧은 first는 슬래브 스트립의
+        // 마구리로 간주 -> concrete. 날개 측면은 관통 깊이 = 날개폭(<=depthMax)이라 보호됨.
+        if (o.perpCap) {
+            macros.forEach((e, k) => {
+                if (e.wallType !== 'first' || e.length > o.capLenMax)
+                    return;
+                const dIn = depthIn[k].dist;
+                if (dIn === null || dIn <= o.depthMax)
+                    return; // 뒤에 세대 깊이 있으면 진짜 전면
+                for (const step of [-1, 1]) {
+                    const nb = significantNeighbor(k, step);
+                    const turn = angDiff(e.azimuth, nb.azimuth);
+                    const cvx = step === -1 ? netConvex(nb, e) : netConvex(e, nb);
+                    if (nb.wallType === 'first' && turn >= 75 && turn <= 105 && cvx && nb.length >= 1.3 * e.length) {
+                        e.wallType = 'concrete';
+                        e.reason = 'perp_cap';
+                        break;
+                    }
+                }
+            });
+        }
+    }
+    // ---- 원본 선분에 매크로 라벨 전파 (Canvas 원좌표로 반환) ----
+    const out = [];
+    for (const e of macros) {
+        for (const i of e.span) {
+            const a = src[i], b = src[(i + 1) % n];
+            const lm = Math.hypot((b.x - a.x) * o.metersPerPxX, (b.y - a.y) * o.metersPerPxY);
+            if (lm < 1e-9)
+                continue;
+            out.push({
+                p1: a, p2: b, length: lm,
+                azimuth: e.azimuth, sunScore: e.sunScore,
+                wallType: e.wallType ?? 'concrete',
+                reason: e.reason,
+            });
+        }
+    }
+    return out;
+}
+function isLowRise(meta) {
+    if (!meta)
+        return false;
+    if (meta.floorsAbove !== null && meta.floorsAbove !== undefined) {
+        return meta.floorsAbove <= 2;
+    }
+    if (meta.height !== null && meta.height !== undefined) {
+        return meta.height <= 7;
+    }
+    return false;
+}
+/**
+ * 단지 폴리곤(보라색) 내부 건물들을 필터링하고 전체 베란다 Line[] 목록 자동 생성
+ * @param buildingsMeta buildings와 같은 순서의 층수/높이 정보(옵션). 전달 시 저층 부속동(<=2층) 마스킹.
+ */
+function generateAutoVerandas(buildings, complexPolygon, opts = {}, buildingsMeta) {
+    const verandas = [];
+    const concreteWalls = [];
+    const targetBuildings = [];
+    buildings.forEach((poly, bIdx) => {
+        if (poly.length < 3)
+            return;
+        let cx = 0, cy = 0;
+        poly.forEach(p => { cx += p.x; cy += p.y; });
+        cx /= poly.length;
+        cy /= poly.length;
+        if (complexPolygon && complexPolygon.length >= 3) {
+            if (!isPointInPolygon({ x: cx, y: cy }, complexPolygon)) {
+                return; // 단지 외부 건물은 제외
+            }
+        }
+        targetBuildings.push(poly);
+        const meta = buildingsMeta?.[bIdx];
+        const classified = classifyBuildingWalls(poly, {
+            ...opts,
+            forceConcrete: opts.forceConcrete || isLowRise(meta),
+        });
+        classified.forEach(w => {
+            if (w.wallType === 'first') {
+                verandas.push({ start: w.p1, end: w.p2, bIdx, isSecond: false });
+            }
+            else if (w.wallType === 'second') {
+                verandas.push({ start: w.p1, end: w.p2, bIdx, isSecond: true });
+            }
+            else {
+                concreteWalls.push({ start: w.p1, end: w.p2, bIdx });
+            }
+        });
+    });
+    return { verandas, concreteWalls, targetBuildings };
+}
+
+return exports; })();
+
+// ===== 데이터 색 (앱 토큰 --d-v1 / --d-v2 / --d-inert 와 동일 계열, 전부 실선) =====
+const C_V1 = '#3987E5', C_V2 = '#8FBEF2', C_CONC = '#9A9690';
+const C_BLD_LINE = '#B9B3A6', C_OUT_LINE = '#5A6068';
+
+// ===== 데이터/렌더링 =====
+const MANIFEST = ["m-RAPA-1705-06-02-41.json", "m-RAPA-1712-03-02-2847.json", "m-RAPA-1801-03-02-412.json", "m-RAPA-1803-05-02-1032.json", "m-RAPA-1805-04-02-2732.json", "m-RAPA-1810-6053.json", "m-RAPA-1810-6057.json", "m-RAPA-1810-6058.json", "m-RAPA-1810-6059.json", "m-RAPA-1811-6729.json", "m-RAPA-1811-7112.json", "m-RAPA-1811-7115.json", "m-RAPA-1812-7573.json", "m-RAPA-1812-7635.json", "m-RAPA-1812-7717.json", "m-RAPA-1901-0082.json", "m-RAPA-1901-0209.json", "m-RAPA-1901-0546.json", "m-RAPA-1902-0701.json", "m-RAPA-1902-0738.json", "m-RAPA-1902-0739.json", "m-RAPA-1902-0897.json", "m-RAPA-1903-1809.json", "m-RAPA-1904-2402.json", "m-RAPA-1905-2967.json", "m-RAPA-1905-3023.json", "m-RAPA-1907-3796.json", "m-RAPA-1907-3797.json", "m-RAPA-1908-4373.json", "m-RAPA-1908-4586.json", "m-RAPA-1909-4801.json", "m-RAPA-1909-5157.json", "m-RAPA-1909-5217.json", "m-RAPA-1910-5654.json", "m-RAPA-1911-5808.json", "m-RAPA-1911-6324.json", "m-RAPA-1911-6347.json", "m-RAPA-2004-1607.json", "m-RAPA-2004-1807.json", "m-RAPA-2004-1846.json", "m-RAPA-2006-2744.json", "m-RAPA-2006-3299.json", "m-RAPA-2007-3415.json", "m-RAPA-2007-3684.json", "m-RAPA-2008-4170.json", "m-RAPA-2008-4501.json", "m-RAPA-2009-4621.json", "m-RAPA-2009-4716.json", "m-RAPA-2009-5139.json", "m-RAPA-2010-5590.json", "m-RAPA-2010-5592.json", "m-RAPA-2010-5635.json", "m-RAPA-2011-6153.json", "m-RAPA-2011-6379.json", "m-RAPA-2012-6592.json", "m-RAPA-2012-6898.json", "m-RAPA-2012-6980.json", "m-RAPA-2012-7033.json", "m-RAPA-2012-7114.json", "m-RAPA-2101-0094.json", "m-RAPA-2102-0689.json", "m-RAPA-2102-0725.json", "m-RAPA-2103-1329.json", "m-RAPA-2103-1408.json", "m-RAPA-2103-1631.json", "m-RAPA-2103-1663.json", "m-RAPA-2104-2092.json", "m-RAPA-2104-2131.json", "m-RAPA-2104-2288.json", "m-RAPA-2105-2717.json", "m-RAPA-2105-3094.json", "m-RAPA-2106-3695.json", "m-RAPA-2106-3707.json", "m-RAPA-2106-3833.json", "m-RAPA-2106-3853.json", "m-RAPA-2106-3943.json", "m-RAPA-2106-3961.json", "m-RAPA-2107-4134.json", "m-RAPA-2107-4333.json", "m-RAPA-2107-4632.json", "m-RAPA-2107-4640.json", "m-RAPA-2107-4650.json", "m-RAPA-2107-4654.json", "m-RAPA-2108-5323.json", "m-RAPA-2109-5774.json", "m-RAPA-2109-5792.json", "m-RAPA-2109-5838.json", "m-RAPA-2109-5951.json", "m-RAPA-2109-5973.json", "m-RAPA-2110-6142.json", "m-RAPA-2110-6146.json", "m-RAPA-2110-6148.json", "m-RAPA-2110-6170.json", "m-RAPA-2110-6180.json", "m-RAPA-2110-6225.json", "m-RAPA-2110-6387.json", "m-RAPA-2110-6396.json", "m-RAPA-2110-6422.json", "m-RAPA-2110-6490.json", "m-RAPA-2110-6492.json", "m-RAPA-2110-6520.json", "m-RAPA-2110-6621.json", "m-RAPA-2110-6635.json", "m-RAPA-2110-6637.json", "m-RAPA-2110-6771.json", "m-RAPA-2111-6916.json", "m-RAPA-2111-6918.json", "m-RAPA-2111-6939.json", "m-RAPA-2111-7124.json", "m-RAPA-2111-7256.json", "m-RAPA-2112-7957.json", "m-RAPA-2112-8222.json", "m-RAPA-2201-0290.json", "m-RAPA-2201-0300.json", "m-RAPA-2201-0323.json", "m-RAPA-2201-0422.json", "m-RAPA-2201-0468.json", "m-RAPA-2201-0482.json", "m-RAPA-2202-0621.json", "m-RAPA-2202-0637.json", "m-RAPA-2202-0772.json", "m-RAPA-2202-0827.json", "m-RAPA-2202-0846.json", "m-RAPA-2202-0851.json", "m-RAPA-2202-0957.json", "m-RAPA-2202-1044.json", "m-RAPA-2202-1046.json", "m-RAPA-2202-1060.json", "m-RAPA-2203-1338.json", "m-RAPA-2203-1552.json", "m-RAPA-2203-1640.json", "m-RAPA-2203-1644.json", "m-RAPA-2203-1679.json", "m-RAPA-2203-1802.json", "m-RAPA-2204-1897.json", "m-RAPA-2204-1931.json", "m-RAPA-2204-1933.json", "m-RAPA-2204-1942.json", "m-RAPA-2204-2378.json", "m-RAPA-2205-2627.json", "m-RAPA-2205-2673.json", "m-RAPA-2205-2760.json", "m-RAPA-2205-2845.json", "m-RAPA-2205-3019.json", "m-RAPA-2205-3045.json", "m-RAPA-2205-3099.json", "m-RAPA-2205-3183.json", "m-RAPA-2205-3222.json", "m-RAPA-2206-3348.json", "m-RAPA-2206-3434.json", "m-RAPA-2206-3599.json", "m-RAPA-2206-3699.json", "m-RAPA-2206-3717.json", "m-RAPA-2206-3734.json", "m-RAPA-2206-3802.json", "m-RAPA-2207-3968.json", "m-RAPA-2207-4073.json", "m-RAPA-2207-4362.json", "m-RAPA-2207-4386.json", "m-RAPA-2207-4396.json", "m-RAPA-2208-4482.json", "m-RAPA-2208-4530.json", "m-RAPA-2208-4590.json", "m-RAPA-2208-4608.json", "m-RAPA-2208-4674.json", "m-RAPA-2208-4675.json", "m-RAPA-2208-4753.json", "m-RAPA-2208-4903.json", "m-RAPA-2208-5041.json", "m-RAPA-2209-5111.json", "m-RAPA-2209-5273.json", "m-RAPA-2209-5291.json", "m-RAPA-2209-5359.json", "m-RAPA-2209-5389.json", "m-RAPA-2209-5494.json", "m-RAPA-2209-5495.json", "m-RAPA-2210-5626.json", "m-RAPA-2210-5659.json", "m-RAPA-2210-5889.json", "m-RAPA-2211-6083.json", "m-RAPA-2211-6124.json", "m-RAPA-2211-6191.json", "m-RAPA-2211-6215.json", "m-RAPA-2211-6287.json", "m-RAPA-2211-6298.json", "m-RAPA-2211-6460.json", "m-RAPA-2211-6571.json", "m-RAPA-2212-6763.json", "m-RAPA-2212-6842.json", "m-RAPA-2212-6843.json", "m-RAPA-2212-6846.json", "m-RAPA-2212-6849.json", "m-RAPA-2212-6852.json", "m-RAPA-2212-7048.json", "m-RAPA-2301-0126.json", "m-RAPA-2301-0161.json", "m-RAPA-2302-0378.json", "m-RAPA-2302-0462.json", "m-RAPA-2302-0463.json", "m-RAPA-2302-0467.json", "m-RAPA-2302-0494.json", "m-RAPA-2302-0515.json", "m-RAPA-2302-0604.json", "m-RAPA-2302-0778.json", "m-RAPA-2303-0800.json", "m-RAPA-2303-0848.json", "m-RAPA-2303-0883.json", "m-RAPA-2303-1174.json", "m-RAPA-2303-1186.json", "m-RAPA-2304-1243.json", "m-RAPA-2304-1244.json", "m-RAPA-2304-1269.json", "m-RAPA-2304-1364.json", "m-RAPA-2304-1398.json", "m-RAPA-2304-1421.json", "m-RAPA-2304-1430.json", "m-RAPA-2304-1530.json", "m-RAPA-2304-1556.json", "m-RAPA-2304-1562.json", "m-RAPA-2305-1719.json", "m-RAPA-2305-1725.json", "m-RAPA-2305-1793.json", "m-RAPA-2305-1794.json", "m-RAPA-2305-1889.json", "m-RAPA-2306-2163.json", "m-RAPA-2306-2367.json", "m-RAPA-2307-2403.json", "m-RAPA-2307-2472.json", "m-RAPA-2307-2474.json", "m-RAPA-2307-2513.json", "m-RAPA-2307-2632.json", "m-RAPA-2307-2703.json", "m-RAPA-2307-2735.json", "m-RAPA-2308-2764.json", "m-RAPA-2308-2831.json", "m-RAPA-2308-2891.json", "m-RAPA-2308-2961.json", "m-RAPA-2309-3155.json", "m-RAPA-2309-3420.json", "m-RAPA-2309-3449.json", "m-RAPA-2310-3536.json", "m-RAPA-2310-3547.json", "m-RAPA-2310-3718.json", "m-RAPA-2310-3747.json", "m-RAPA-2310-3755.json", "m-RAPA-2310-3787.json", "m-RAPA-2311-3810.json", "m-RAPA-2311-3969.json", "m-RAPA-2311-4001.json", "m-RAPA-2311-4074.json", "m-RAPA-2311-4076.json", "m-RAPA-2312-4180.json", "m-RAPA-2312-4183.json", "m-RAPA-2312-4359.json", "m-RAPA-2312-4405.json", "m-RAPA-2312-4406.json", "m-RAPA-2401-0071.json", "m-RAPA-2401-0181.json", "m-RAPA-2401-0286.json", "m-RAPA-2402-0382.json", "m-RAPA-2402-0423.json", "m-RAPA-2402-0467.json", "m-RAPA-2402-0544.json", "m-RAPA-2403-0883.json", "m-RAPA-2404-0904.json", "m-RAPA-2405-1502.json", "m-RAPA-2405-1516.json", "m-RAPA-2406-1649.json", "m-RAPA-2406-1750.json", "m-RAPA-2407-1893.json", "m-RAPA-2407-1956.json", "m-RAPA-2407-1978.json", "m-RAPA-2407-1997.json", "m-RAPA-2408-2237.json", "m-RAPA-2409-2568.json", "m-RAPA-2410-2977.json", "m-RAPA-2410-2982.json", "m-RAPA-2410-2983.json", "m-RAPA-2410-2984.json", "m-RAPA-2411-3071.json", "m-RAPA-2411-3075.json", "m-RAPA-2412-3487.json", "m-RAPA-2502-0296.json", "m-RAPA-2503-0787.json", "m-RAPA-2507-1826.json", "m-RAPA-2508-2083.json", "m-RAPA-2509-2393.json", "m-RAPA-2510-2861.json"];
+let currentData = null, wallCache = { old: [], nu: [] };
+
+const sel = document.getElementById('complexSelect');
+MANIFEST.forEach(f => { const o = document.createElement('option'); o.value = f; o.textContent = f; sel.appendChild(o); });
+
+function lonLatToMeters(lon, lat, lat0) {
+  const mLat = 111320.0, mLon = 111320.0 * Math.cos(lat0 * Math.PI/180);
+  return [lon * mLon, lat * mLat];
+}
+
+async function loadAndRender() {
+  const key = sel.value;
+  try {
+    const res = await fetch('temps/' + encodeURIComponent(key));
+    currentData = await res.json();
+  } catch (e) {
+    document.getElementById('statsNew').textContent = '로드 실패: ' + e.message;
+    return;
+  }
+  render();
+}
+
+function pointInPoly(x, y, poly) {
+  let inside = false; const n = poly.length; let [p1x, p1y] = poly[0];
+  for (let i = 1; i <= n; i++) {
+    const [p2x, p2y] = poly[i % n];
+    if (y > Math.min(p1y,p2y) && y <= Math.max(p1y,p2y) && x <= Math.max(p1x,p2x) && p1y !== p2y) {
+      const xi = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x;
+      if (p1x === p2x || x <= xi) inside = !inside;
+    }
+    [p1x, p1y] = [p2x, p2y];
+  }
+  return inside;
+}
+
+function render() {
+  if (!currentData) return;
+  const mask = document.getElementById('lowriseMask').checked;
+  const cplx = currentData.complex || {};
+  const cpoly = cplx.polygon || [];
+  const blds = (currentData.buildings || []).filter(b => b.polygon && b.polygon.length >= 3);
+  const inside = [], outside = [];
+  blds.forEach(b => {
+    const c = b.center || [b.polygon.reduce((s,p)=>s+p[0],0)/b.polygon.length, b.polygon.reduce((s,p)=>s+p[1],0)/b.polygon.length];
+    if (cpoly.length >= 3 && !pointInPoly(c[0], c[1], cpoly)) outside.push(b); else inside.push(b);
+  });
+
+  // bbox
+  let pts = [];
+  if (cpoly.length) pts = pts.concat(cpoly);
+  inside.concat(outside).forEach(b => pts = pts.concat(b.polygon));
+  const mnLon = Math.min(...pts.map(p=>p[0])), mxLon = Math.max(...pts.map(p=>p[0]));
+  const mnLat = Math.min(...pts.map(p=>p[1])), mxLat = Math.max(...pts.map(p=>p[1]));
+  const lat0 = (mnLat+mxLat)/2;
+
+  wallCache = { old: [], nu: [] };
+  const sums = { first:0, second:0, concrete:0 };
+  let maskedCnt = 0;
+
+  const results = inside.map(b => {
+    const lowrise = mask && ((b.floors_above != null && b.floors_above <= 2) ||
+                             (b.floors_above == null && b.height != null && b.height <= 7));
+    if (lowrise) maskedCnt++;
+    // v2: lon/lat -> 미터 -> canvas형(y반전) 좌표
+    const polyM = b.polygon.map(p => { const m = lonLatToMeters(p[0], p[1], lat0); return { x: m[0], y: -m[1] }; });
+    const newW = VerandaV2.classifyBuildingWalls(polyM, { metersPerPxX: 1, forceConcrete: lowrise });
+    newW.forEach(w => sums[w.wallType] += w.length);
+    return { b, newW, lowrise };
+  });
+
+  document.getElementById('statsOld').innerHTML =
+    `<span style="color:#c9d1d9">단지 내 ${inside.length}동</span>` +
+    `<span style="color:#8b949e">단지 외 ${outside.length}동</span>` +
+    (maskedCnt ? `<span style="color:#8b949e">저층 ${maskedCnt}동</span>` : '');
+
+  document.getElementById('statsNew').innerHTML =
+    `<span style="color:${C_V1}">1차 ${Math.round(sums.first)}m</span>` +
+    `<span style="color:${C_V2}">2차 ${Math.round(sums.second)}m</span>` +
+    `<span style="color:#8b949e">벽 ${Math.round(sums.concrete)}m</span>`;
+
+  ['cvOld','cvNew'].forEach((cvId, panelIdx) => {
+    const cv = document.getElementById(cvId);
+    const ctx = cv.getContext('2d');
+    const w = cv.parentElement.clientWidth, h = cv.parentElement.clientHeight;
+    cv.width = w*2; cv.height = h*2; ctx.scale(2,2);
+    ctx.clearRect(0,0,w,h);
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    const pad = 34;
+    // 등방 스케일: 위도/경도 미터 비율 반영
+    const mLon = Math.cos(lat0*Math.PI/180);
+    const sc = Math.min((w-pad*2)/(((mxLon-mnLon)*mLon)||1e-4), (h-pad*2)/((mxLat-mnLat)||1e-4));
+    const cx = (mnLon+mxLon)/2, cy = (mnLat+mxLat)/2;
+    const toS = (lon, lat) => [ w/2 + (lon-cx)*mLon*sc, h/2 - (lat-cy)*sc ];
+
+    if (cpoly.length >= 3) {
+      ctx.beginPath();
+      cpoly.forEach((p,i) => { const s = toS(p[0],p[1]); i? ctx.lineTo(...s) : ctx.moveTo(...s); });
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(168,85,247,.10)'; ctx.fill();
+      ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 1.5; ctx.setLineDash([6,6]); ctx.stroke(); ctx.setLineDash([]);
+    }
+    outside.forEach(b => {
+      ctx.beginPath();
+      b.polygon.forEach((p,i) => { const s = toS(p[0],p[1]); i? ctx.lineTo(...s) : ctx.moveTo(...s); });
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(48,54,61,.3)'; ctx.fill();
+      ctx.strokeStyle = C_OUT_LINE; ctx.lineWidth = 1; ctx.setLineDash([2,2]); ctx.stroke(); ctx.setLineDash([]);
+    });
+    results.forEach(({b, newW, lowrise}) => {
+      ctx.beginPath();
+      b.polygon.forEach((p,i) => { const s = toS(p[0],p[1]); i? ctx.lineTo(...s) : ctx.moveTo(...s); });
+      ctx.closePath();
+      ctx.fillStyle = lowrise && panelIdx===1 ? 'rgba(48,54,61,.6)' : 'rgba(33,38,45,.85)';
+      ctx.fill();
+
+      if (panelIdx === 0) {
+        // [좌] 베란다 미적용 — 건물 외곽선만
+        ctx.strokeStyle = C_BLD_LINE; ctx.lineWidth = 1.6; ctx.stroke();
+        b.polygon.forEach((p,i) => {
+          const q = b.polygon[(i+1) % b.polygon.length];
+          wallCache.old.push({ s1: toS(p[0],p[1]), s2: toS(q[0],q[1]), bld: b.bld_nm, fl: b.floors_above });
+        });
+      } else {
+        // [우] 분류 결과 — 벽면별 색
+        const mLonS = 111320.0 * Math.cos(lat0*Math.PI/180);
+        newW.forEach(wl => {
+          // 미터/캔버스형 좌표 -> lon/lat 복원
+          const lon1 = wl.p1.x/mLonS, lat1 = -wl.p1.y/111320.0;
+          const lon2 = wl.p2.x/mLonS, lat2 = -wl.p2.y/111320.0;
+          const s1 = toS(lon1, lat1), s2 = toS(lon2, lat2);
+          drawWall(ctx, s1, s2, wl.wallType);
+          wallCache.nu.push({ s1, s2, type: wl.wallType, len: wl.length, az: wl.azimuth, reason: wl.reason || '', bld: b.bld_nm, fl: b.floors_above });
+        });
+      }
+    });
+  });
+}
+
+// 전부 실선. 굵기로만 위계를 준다 (1차 > 2차 > 콘크리트).
+function drawWall(ctx, s1, s2, type) {
+  ctx.beginPath(); ctx.moveTo(...s1); ctx.lineTo(...s2);
+  if (type === 'first') { ctx.strokeStyle = C_V1; ctx.lineWidth = 3.2; }
+  else if (type === 'second') { ctx.strokeStyle = C_V2; ctx.lineWidth = 2.8; }
+  else { ctx.strokeStyle = C_CONC; ctx.lineWidth = 1.6; }
+  ctx.stroke();
+}
+
+// 툴팁
+const tip = document.getElementById('tooltip');
+const NAME_KO = { first:'1차 베란다', second:'2차 베란다', concrete:'콘크리트' };
+const REASON_KO = { end_wall:'판상형 단축 마구리', small_face:'미세면(코어/설비)', front_axis:'판상형 전면 장축', back_axis:'판상형 배면 장축',
+  wing_cap:'날개 마구리', sun_front:'수광 전면', rel_front:'경계 상대판정 전면', paired_back:'전면 페어링 배면',
+  unpaired_back:'비페어링 배면(깊음)', core_sandwich:'코어 사이 고립면', perp_cap:'수직 마구리(스트립 끝)', lowrise_mask:'저층 부속동' };
+['cvOld','cvNew'].forEach((cvId, idx) => {
+  const cv = document.getElementById(cvId);
+  cv.addEventListener('mousemove', ev => {
+    const r = cv.getBoundingClientRect();
+    const x = ev.clientX - r.left, y = ev.clientY - r.top;
+    const walls = idx === 0 ? wallCache.old : wallCache.nu;
+    let best = null, bd = 36;
+    walls.forEach(wl => {
+      const d = distSeg(x, y, wl.s1, wl.s2);
+      if (d < bd) { bd = d; best = wl; }
+    });
+    if (best) {
+      tip.style.display = 'block';
+      tip.style.left = (ev.clientX + 14) + 'px';
+      tip.style.top = (ev.clientY + 14) + 'px';
+      if (idx === 0) {
+        tip.textContent = `${best.bld || '건물'}${best.fl ? ' ('+best.fl+'F)' : ''}\n베란다 미적용 (원본 폴리곤)`;
+      } else {
+        const rk = REASON_KO[best.reason] ? ' | ' + REASON_KO[best.reason] : '';
+        tip.textContent = `${best.bld || '건물'}${best.fl ? ' ('+best.fl+'F)' : ''}\n${NAME_KO[best.type]}${rk}\n방위각 ${Math.round(best.az)}° | ${best.len.toFixed(1)}m`;
+      }
+    } else tip.style.display = 'none';
+  });
+  cv.addEventListener('mouseleave', () => tip.style.display = 'none');
+});
+function distSeg(px, py, a, b) {
+  const l2 = (a[0]-b[0])**2 + (a[1]-b[1])**2;
+  if (!l2) return Math.hypot(px-a[0], py-a[1]);
+  let t = ((px-a[0])*(b[0]-a[0]) + (py-a[1])*(b[1]-a[1])) / l2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (a[0]+t*(b[0]-a[0])), py - (a[1]+t*(b[1]-a[1])));
+}
+
+window.addEventListener('resize', render);
+loadAndRender();
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{
+  "rapaKey": "m-RAPA-2004-1807",
+  "analyzedAt": "2026-08-23T02:11:15.333Z",
+  "durationSec": 1,
+  "status": "NOK",
+  "errorMsg": "유효한 건물 또는 단지 폴리곤 데이터가 없습니다 (key: m-RAPA-2004-1807)",
+  "params": {
+    "beamWidth": 65,
+    "maxRange": 150,
+    "targetCoverage": 60,
+    "adjacentBuildingBuffer": 65,
+    "facilitySearchRadius": 150,
+    "pixelsPerMeter": 1,
+    "strictCoLocation": true,
+    "simulationMode": "full_auto"
+  },
+  "scene": {
+    "buildingCount": 0,
+    "verandaSource": "verandaAi-v2.2",
+    "pixelsPerMeter": 1
+  },
+  "stepReport": {
+    "ina_no": "m-RAPA-2004-1807",
+    "apt_name": "m-RAPA-2004-1807",
+    "steps": {
+      "2.1_polygon_fetch": "NOK",
+      "2.2_nearby_sites": "SKIP",
+      "2.3_kanro_check": "SKIP",
+      "2.4_veranda_setup": "SKIP",
+      "2.5_polygon_filter": "SKIP",
+      "2.6_los_simulation": "SKIP",
+      "2.7_ailayer_prep": "SKIP",
+      "3_ailayer_update": "SKIP"
+    },
+    "overall": "NOK",
+    "error_msg": "유효한 건물 또는 단지 폴리곤 데이터가 없습니다 (key: m-RAPA-2004-1807)",
+    "los_pct": 0,
+    "site_cnt": 0
+  }
+}

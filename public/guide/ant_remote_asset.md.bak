@@ -1,0 +1,115 @@
+# 인접 무선 시설(안테나/AAU 자산) 연동 규격서
+
+> **문서 상태**: 초안 (Draft)  
+> **생성 일시**: 2026-08-26  
+> **대상 파일**: `public/guide/ant_remote_asset.md`
+
+---
+
+## 1. 개요 및 목적 (Overview & Objective)
+
+* **배경**: 현재 LOS Simulator & Auto Planner 시스템은 아파트 단지 폴리곤(`ap_bld_cplx_inf`) 및 단지 내·주변 건물(`ac_bld_bas`)을 조회하여 3D/2D 시뮬레이션 환경을 구성하고 있습니다.
+* **목적**: 단지 주변의 **인접 무선 시설(안테나 / AAU 장비 / 빔 설정 자산)** 데이터를 함께 로드하여, 기존 기지국 현황 파악, 빔 커버리지 오버레이, 신규 Site/Sector 설계 시 간섭 및 중복 투자 방지 등에 활용하고자 합니다.
+* **적용 원칙**: 인접 무선 시설을 불러오는 공간 필터링 규칙은 **기존 단지 폴리곤 주변 건물 로딩 로직(단지 내부 + 단지 경계 기준 버퍼 반경)과 100% 동일하게 적용**합니다.
+
+---
+
+## 2. 안테나/무선 자산 테이블 스키마 (Asset Schema)
+
+| # | 컬럼명 | 데이터 타입 | Nullable | 컬럼 설명 및 업무 맥락 |
+|:---:|:---|:---:|:---:|:---|
+| 1 | `aau_type` | `String` | Nullable | AAU 장비 유형 (32T/64T 등 용량·스윙 분석) |
+| 2 | `beam_type` | `String` | Nullable | 빔 유형 (Beam Pattern / Beamforming 방식) |
+| 3 | `ss_eswing` | `String` | Nullable | ss_eswing 컬럼 (타입·업무 맥락 미기재 → DDL/도메인 담당 검증 필요) |
+| 4 | `ss_ssb_type` | `String` | Nullable | SS / SSB (Synchronization Signal Block) 유형 |
+| 5 | `el_digitalpan` | `String` | Nullable | el_digitalpan 컬럼 (타입·업무 맥락 미기재 → DDL/도메인 담당 검증 필요) |
+| 6 | `nk_bnasicteamset` | `String` | Nullable | nk_bnasicteamset 컬럼 (타입·업무 맥락 미기재 → DDL/도메인 담당 검증 필요) |
+| 7 | `nk_leftedgeangle` | `String` | Nullable | nk_leftedgeangle (좌측 에지 각도 / 스윙 가용 범위) |
+| 8 | `nk_rightedgeangle`| `String` | Nullable | nk_rightedgeangle (우측 에지 각도 / 스윙 가용 범위) |
+| 9 | `nk_tiltoffset` | `String` | Nullable | nk_tiltoffset (틸트 오프셋 / Tilt Offset 각도) |
+| 10 | `dt` | `String` | Nullable | 파티션 ETL 일자 (`YYYYMMDD`) |
+
+> [!NOTE]
+> 위 10개 컬럼 외에 공간 조인 및 지도 매핑에 필요한 기본 좌표(`lat`, `lng`, `height` 등) 및 기지국/시설 식별자(`facility_cd`, `site_key` 등)와의 조인 구조는 추후 확정되는 대로 업데이트될 예정입니다.
+
+---
+
+## 3. 인접 시설 로딩 로직 (기존 주변 건물 로직 분석 & 동일 적용)
+
+### 3-1. 기존 시스템의 주변 건물 로딩 알고리즘 구조
+
+기존 LOS 시스템에서 단지 및 주변 건물을 로딩하는 파이프라인은 다음과 같이 **2단계 공간 필터링**으로 구현되어 있습니다:
+
+```mermaid
+flowchart TD
+    A["단지 중심 좌표 (lat, lng)"] --> B["[1단계 DB/Athena BBox 조회]\nlat ± 0.005, lng ± 0.005 (약 500m 반경)"]
+    B --> C["후보군 데이터 수집"]
+    C --> D{"[2단계 단지 경계 기반 필터링]\n(scenePrep.ts)"}
+    D -->|"조건 1: pointInPoly"| E["단지 폴리곤 내부 객체 → 포함"]
+    D -->|"조건 2: distToPoly <= buffer"| F["단지 외곽선 기준 65m 이내 객체 → 포함"]
+    D -->|"거리 초과"| G["제외 (Drop)"]
+    E --> H["최종 Scene 캔버스 및 시뮬레이션에 반영"]
+    F --> H
+```
+
+1. **1단계: 광역 Bounding Box 조회 (Athena / DB 레벨)**
+   - [`db_schema_relations.md §3-3`](file:///Users/1109425/playground-eng-apt-cover-windows/docs/00-pm/db_schema_relations.md#L273-L283) 및 `athena/query_moira.py`:
+   - 단지 기준 좌표 주변 약 500m 반경(`lat ± 0.005`, `lng ± 0.005`) 내의 객체를 1차 추출합니다.
+2. **2단계: 단지 폴리곤 + 버퍼 정밀 공간 조인 (엔진/프론트 레벨)**
+   - [`src/lib/scenePrep.ts L202-L229`](file:///Users/1109425/playground-eng-apt-cover-windows/src/lib/scenePrep.ts#L202-L229):
+   - **조건 ① (단지 내부)**: 객체 좌표가 단지 폴리곤(`mappedComplexArea`) 내부(`pointInPoly === true`)에 위치하면 포함.
+   - **조건 ② (단지 인접 버퍼)**: 단지 외곽선과의 최단 거리(`distToPoly`)가 버퍼 거리(`adjacentBuildingBuffer`, 기본값 **65m**) 이내이면 포함.
+
+---
+
+### 3-2. 인접 무선 시설(안테나/AAU 자산) 로딩에 동일 적용 방안
+
+인접 무선 시설 데이터도 위 알고리즘을 그대로 적용합니다:
+
+```sql
+-- 1단계: 대상 아파트 단지 반경 BBox 쿼리 (Athena 예시)
+SELECT 
+    f.facility_cd,
+    f.lat,
+    f.lng,
+    f.aau_type,
+    f.beam_type,
+    f.ss_eswing,
+    f.ss_ssb_type,
+    f.el_digitalpan,
+    f.nk_bnasicteamset,
+    f.nk_leftedgeangle,
+    f.nk_rightedgeangle,
+    f.nk_tiltoffset,
+    f.dt
+FROM p_common.ant_remote_asset f
+WHERE f.lng BETWEEN (:target_lng - 0.005) AND (:target_lng + 0.005)
+  AND f.lat BETWEEN (:target_lat - 0.005) AND (:target_lat + 0.005)
+  AND f.dt = :latest_dt;
+```
+
+```typescript
+// 2단계: 단지 폴리곤 + 인접 65m 버퍼 필터링 (scenePrep.ts 동일 로직)
+const bufferMeters = options.adjacentBuildingBuffer ?? 65; // Ground Rule 기본값 65m
+const bufferPx = bufferMeters * pixelsPerMeter;
+
+const activeAssets = candidateAssets.filter(asset => {
+  const assetCanvasPos = lonLatToCanvas(asset.lng, asset.lat, mapping);
+  
+  // 1. 단지 폴리곤 내부 시설
+  if (pointInPoly(assetCanvasPos, mappedComplexArea)) return true;
+  
+  // 2. 단지 외곽선 경계 기준 65m 이내 인접 시설
+  const dist = distToPoly(assetCanvasPos, mappedComplexArea);
+  return dist <= bufferPx;
+});
+```
+
+---
+
+## 4. 향후 업데이트 및 검토 항목 (Roadmap & Next Steps)
+
+- [ ] **필수 키 매핑 확정**: 무선 시설 테이블의 기본 위치 컬럼(`lat`, `lng`, 설치 높이/지상고 `height`) 및 사이트 식별 키 명칭 확정
+- [ ] **도메인 파라미터 정의**: `ss_eswing`, `el_digitalpan`, `nk_bnasicteamset` 등 미기재 필드의 물리적 의미 및 RF 모델링(빔 방위각, 틸트, 빔폭 등) 반영 규칙 정립
+- [ ] **UI/3D 캔버스 오버레이**: 인접 기지국의 AAU 장비 아이콘 및 빔 방향 시각화 요소 추가
+- [ ] **데이터 파이프라인 연동**: `athena/query_moira.py` 및 배치 파이프라인에 인접 무선 시설 조회 레이어 추가

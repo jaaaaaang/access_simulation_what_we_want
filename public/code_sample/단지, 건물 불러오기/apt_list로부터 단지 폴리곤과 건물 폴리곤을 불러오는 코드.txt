@@ -1,0 +1,216 @@
+
+
+### 단지와 건물 폴리곤을 불러오는 코드
+
+import csv
+from datetime import datetime, timezone
+import json
+import os
+import re
+from idcube_hive_connector import connector
+import pandas as pd
+
+
+csv_file = 'apt_list_part_04.csv'  #04 붙일 필요 없어졌음. 그냥 apt_list.csv 임. 
+part_name = os.path.splitext(os.path.basename(csv_file))[0]  # apt_list.csv 라고 생각하고 코드 수정필요. 
+out_file = f'complex_polygons_{part_name}.json'
+
+
+# 1. DB 연결
+conn = connector.connect_idcube_athena()
+
+
+# 2. WKT 파싱 유틸
+def parse_wkt_polygon(wkt: str):
+  if not wkt:
+    return None
+  try:
+    from shapely import wkt as shapely_wkt
+
+    geom = shapely_wkt.loads(wkt)
+    if geom.geom_type == 'Polygon':
+      return [[x, y] for x, y in geom.exterior.coords]
+    if geom.geom_type == 'MultiPolygon':
+      return [[x, y] for x, y in list(geom.geoms)[0].exterior.coords]
+  except Exception:
+    pass
+  m = re.search(r'\(\(([^()]+)\)\)', wkt)
+  if not m:
+    return None
+  points = []
+  for pair in m.group(1).split(','):
+    parts = pair.strip().split()
+    if len(parts) >= 2:
+      try:
+        points.append([float(parts[0]), float(parts[1])])
+      except ValueError:
+        continue
+  return points if len(points) >= 3 else None
+
+
+# 3. 단지 1개 조회 로직 (직접 검증하신 2단계 SQL)
+def query_moira_target(conn, rapa_key: str, lat: float, lng: float):
+  # [1단계] 단지 폴리곤 및 ID 검색
+  q1 = f"""
+    SELECT bld_cplx_inf_id, cplx_scl_nm,
+           ST_AsText(ST_GeomFromBinary(pygn_geo)) AS complex_wkt
+    FROM o_moira.ap_bld_cplx_inf
+    WHERE cplx_mcl_nm = '아파트'
+      AND ST_Contains(ST_GeomFromBinary(pygn_geo), ST_Point({lng:.8f}, {lat:.8f}))
+    LIMIT 1
+    """
+  df_c = pd.read_sql_query(q1, conn)
+
+  if not df_c.empty and df_c.iloc[0]['bld_cplx_inf_id']:
+    c_id = str(df_c.iloc[0]['bld_cplx_inf_id'])
+    c_poly = parse_wkt_polygon(df_c.iloc[0]['complex_wkt'])
+    complex_data = {
+        'bld_cplx_inf_id': int(c_id),
+        'cplx_scl_nm': df_c.iloc[0]['cplx_scl_nm'],
+        'polygon': c_poly,
+    }
+
+    # [2단계] 단지 ID로 단지 내부 건물만 직접 조인 (버퍼 없이 정확히 조회)
+    q2 = f"""
+        SELECT b.ciss_bld_cd, b.bld_nm, b.bld_lcl_nm, b.bld_scl_nm,
+               b.grud_flor_cnt, b.bsmt_flor_cnt, b.bld_hght,
+               b.bld_in_lng, b.bld_in_lat,
+               ST_AsText(ST_GeomFromBinary(b.geo)) AS building_wkt
+        FROM o_moira.ap_bld_cplx_inf c
+        JOIN o_moira.ac_bld_bas b
+          ON ST_Intersects(ST_GeomFromBinary(c.pygn_geo), ST_Point(b.bld_in_lng, b.bld_in_lat))
+        WHERE c.bld_cplx_inf_id = '{c_id}'
+        """
+    df_b = pd.read_sql_query(q2, conn)
+    source = 'complex_polygon'
+  else:
+    # 단지 미발견 시: 중심점 기준 200m 가상 단지 폴리곤 및 BBOX 건물
+    d = 0.0018
+    complex_data = {
+        'bld_cplx_inf_id': None,
+        'cplx_scl_nm': '가상영역(200m)',
+        'polygon': [
+            [lng - d, lat - d],
+            [lng + d, lat - d],
+            [lng + d, lat + d],
+            [lng - d, lat + d],
+            [lng - d, lat - d],
+        ],
+    }
+    q2 = f"""
+        SELECT b.ciss_bld_cd, b.bld_nm, b.bld_lcl_nm, b.bld_scl_nm,
+               b.grud_flor_cnt, b.bsmt_flor_cnt, b.bld_hght,
+               b.bld_in_lng, b.bld_in_lat,
+               ST_AsText(ST_GeomFromBinary(b.geo)) AS building_wkt
+        FROM o_moira.ac_bld_bas b
+        WHERE b.bld_in_lng BETWEEN {lng - d:.8f} AND {lng + d:.8f}
+          AND b.bld_in_lat BETWEEN {lat - d:.8f} AND {lat + d:.8f}
+        """
+    df_b = pd.read_sql_query(q2, conn)
+    source = 'virtual_200m_bbox'
+
+  buildings = []
+  for _, row in df_b.iterrows():
+    buildings.append({
+        'ciss_bld_cd': row.get('ciss_bld_cd'),
+        'bld_nm': row.get('bld_nm'),
+        'floors_above': (
+            int(row['grud_flor_cnt'])
+            if pd.notna(row.get('grud_flor_cnt'))
+            else None
+        ),
+        'floors_below': (
+            int(row['bsmt_flor_cnt'])
+            if pd.notna(row.get('bsmt_flor_cnt'))
+            else None
+        ),
+        'height': (
+            float(row['bld_hght']) if pd.notna(row.get('bld_hght')) else None
+        ),
+        'center': [row.get('bld_in_lng'), row.get('bld_in_lat')],
+        'polygon': parse_wkt_polygon(row.get('building_wkt')),
+    })
+
+  return {
+      'rapaKey': rapa_key,
+      'queriedAt': datetime.now(timezone.utc).isoformat(),
+      'complex': complex_data,
+      'buildingSource': source,
+      'buildings': buildings,
+  }
+
+
+# # 4. CSV 전체 일괄 실행 및 JSON 저장
+# out_file = 'complex_polygons.json'
+
+# # 병렬 실행할 때 각 프로세스가 자신의 파일을 사용
+# csv_file = os.environ.get('CSV_FILE', 'apt_list_part_01.csv')
+
+
+with open(csv_file, encoding='utf-8-sig') as f:
+    rows = list(csv.DictReader(f))
+
+print(f'총 {len(rows)}개 아파트 조회 시작...')
+targets = {}
+for idx, row in enumerate(rows, 1):
+  k = row.get('RAPA식별코드')
+  if not k:
+    continue
+  try:
+    lat, lng = float(row['위도']), float(row['경도'])
+    res = query_moira_target(conn, k, lat, lng)
+    targets[k] = res
+    print(
+        f"[{idx}/{len(rows)}] {k} 완료 ({res['buildingSource']}, 건물"
+        f" {len(res['buildings'])}개)"
+    )
+  except Exception as e:
+    print(f'[{idx}/{len(rows)}] {k} 실패: {e}')
+
+# 결과 파일 저장
+with open(out_file, 'w', encoding='utf-8') as f:
+  json.dump(
+      {
+          'generatedAt': datetime.now(timezone.utc).isoformat(),
+          'targets': targets,
+      },
+      f,
+      ensure_ascii=False,
+  )
+
+print(f'\n🎉 전체 완료! {out_file} 생성됨')  ## 이거 최종으로는 전체 완료! complex_polygons_apt_list_part_01.json 생성되는게 아니라, "complex_polygons.json" 이거 하나생기게 됨. 이유는 앞단에서 apt_list를 분리하지않고 처리하니까. 
+
+
+
+### 다음 파트는 gitlab에 올리기 위해서 10M 넘는파일이 있는지 체크하는 용도 
+
+import os
+
+target_dir = 'temp_'
+limit_mb = 10
+limit_bytes = limit_mb * 1024 * 1024
+
+large_files = []
+
+for filename in os.listdir(target_dir):
+    if filename.endswith('.json'):
+        file_path = os.path.join(target_dir, filename)
+        size_bytes = os.path.getsize(file_path)
+        size_mb = size_bytes / (1024 * 1024)
+
+        if size_bytes > limit_bytes:
+            large_files.append((filename, size_mb))
+
+# 결과 출력
+if large_files:
+    print(f'⚠️ {limit_mb}MB 초과 파일 {len(large_files)}개 발견\n')
+
+    # 큰 순서대로 정렬
+    large_files.sort(key=lambda x: x[1], reverse=True)
+
+    for filename, size_mb in large_files:
+        print(f'{filename}: {size_mb:.2f} MB')
+else:
+    print(f'✅ {limit_mb}MB 초과 파일이 없습니다.')
+
+# 이다음 각 json파일을 내가 직접 gitlab에 올렸었음.  앞으론 어떻게 해야하지? 

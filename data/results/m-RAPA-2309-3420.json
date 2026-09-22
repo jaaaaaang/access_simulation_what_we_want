@@ -1,0 +1,129 @@
+{
+  "rapaKey": "m-RAPA-2309-3420",
+  "analyzedAt": "2026-08-17T13:14:26.330Z",
+  "durationSec": 1,
+  "status": "WARN",
+  "errorMsg": null,
+  "warningMsg": "커버리지 0% (배치 대상 베란다/후보점 부재 또는 목표 커버리지 미도달)",
+  "source": "batch",
+  "params": {
+    "beamWidth": 65,
+    "maxRange": 150,
+    "targetCoverage": 60,
+    "pixelsPerMeter": 1.597,
+    "strictCoLocation": true,
+    "simulationMode": "full_auto",
+    "analysisArea": [
+      {
+        "x": 65.0971552753609,
+        "y": 720
+      },
+      {
+        "x": 583.9028447250128,
+        "y": 720
+      },
+      {
+        "x": 583.9028447250128,
+        "y": 80
+      },
+      {
+        "x": 65.0971552753609,
+        "y": 80
+      },
+      {
+        "x": 65.0971552753609,
+        "y": 720
+      }
+    ]
+  },
+  "scene": {
+    "buildingCount": 1,
+    "verandaSource": "verandaAi-v2.2",
+    "pixelsPerMeter": 1.597
+  },
+  "rank1": {
+    "coverageRatio": 0,
+    "secondCoveredSamples": 0,
+    "secondCoverage": 0,
+    "coveredSamples": [],
+    "secondCoveredSamplesPoints": [],
+    "sites": [],
+    "buildingCoverages": [
+      {
+        "bIdx": 0,
+        "total": 18,
+        "covered": 0,
+        "ratio": 0,
+        "secondCovered": 0,
+        "secondTotal": 18
+      }
+    ],
+    "logs": [
+      {
+        "id": "stop",
+        "x": 0,
+        "y": 0,
+        "angle": 0,
+        "score": 0,
+        "coveredCount": 0,
+        "message": "Auto-optimizer ended: Unfinished targeting with remaining coordinates."
+      }
+    ]
+  },
+  "topRanks": [
+    {
+      "rank": 1,
+      "coverageRatio": 0,
+      "siteCount": 0,
+      "sectorCount": 0,
+      "sites": []
+    },
+    {
+      "rank": 2,
+      "coverageRatio": 0,
+      "siteCount": 0,
+      "sectorCount": 0,
+      "sites": []
+    },
+    {
+      "rank": 3,
+      "coverageRatio": 0,
+      "siteCount": 0,
+      "sectorCount": 0,
+      "sites": []
+    },
+    {
+      "rank": 4,
+      "coverageRatio": 0,
+      "siteCount": 0,
+      "sectorCount": 0,
+      "sites": []
+    },
+    {
+      "rank": 5,
+      "coverageRatio": 0,
+      "siteCount": 0,
+      "sectorCount": 0,
+      "sites": []
+    }
+  ],
+  "stepReport": {
+    "ina_no": "m-RAPA-2309-3420",
+    "apt_name": "m-RAPA-2309-3420",
+    "steps": {
+      "2.1_polygon_fetch": "OK",
+      "2.2_nearby_sites": "SKIP",
+      "2.3_kanro_check": "OK",
+      "2.4_veranda_setup": "OK",
+      "2.5_polygon_filter": "OK",
+      "2.6_los_simulation": "OK",
+      "2.7_ailayer_prep": "OK",
+      "3_ailayer_update": "SKIP"
+    },
+    "overall": "WARN",
+    "error_msg": null,
+    "warning_msg": "커버리지 0% (배치 대상 베란다/후보점 부재 또는 목표 커버리지 미도달)",
+    "los_pct": 0,
+    "site_cnt": 0
+  }
+}

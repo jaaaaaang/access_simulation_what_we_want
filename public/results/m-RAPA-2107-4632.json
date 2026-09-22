@@ -1,0 +1,334 @@
+{
+  "rapaKey": "m-RAPA-2107-4632",
+  "analyzedAt": "2026-08-17T13:14:24.961Z",
+  "durationSec": 1,
+  "status": "OK",
+  "errorMsg": null,
+  "warningMsg": null,
+  "source": "batch",
+  "params": {
+    "beamWidth": 65,
+    "maxRange": 150,
+    "targetCoverage": 60,
+    "pixelsPerMeter": 1.597,
+    "strictCoLocation": true,
+    "simulationMode": "full_auto",
+    "analysisArea": [
+      {
+        "x": 65.09324206860536,
+        "y": 720
+      },
+      {
+        "x": 583.9067579334578,
+        "y": 720
+      },
+      {
+        "x": 583.9067579334578,
+        "y": 80
+      },
+      {
+        "x": 65.09324206860536,
+        "y": 80
+      },
+      {
+        "x": 65.09324206860536,
+        "y": 720
+      }
+    ]
+  },
+  "scene": {
+    "buildingCount": 2,
+    "verandaSource": "verandaAi-v2.2",
+    "pixelsPerMeter": 1.597
+  },
+  "rank1": {
+    "coverageRatio": 48.7,
+    "secondCoveredSamples": 0,
+    "secondCoverage": 0,
+    "coveredSamples": [
+      {
+        "x": 153.8,
+        "y": 492
+      },
+      {
+        "x": 155.3,
+        "y": 491.8
+      },
+      {
+        "x": 156.8,
+        "y": 491.7
+      },
+      {
+        "x": 158.3,
+        "y": 491.6
+      },
+      {
+        "x": 159.8,
+        "y": 491.5
+      },
+      {
+        "x": 161.3,
+        "y": 491.3
+      },
+      {
+        "x": 162.8,
+        "y": 491.2
+      },
+      {
+        "x": 164.3,
+        "y": 491.1
+      },
+      {
+        "x": 165.8,
+        "y": 490.9
+      },
+      {
+        "x": 167.3,
+        "y": 490.8
+      },
+      {
+        "x": 167.3,
+        "y": 490.8
+      },
+      {
+        "x": 167.2,
+        "y": 489.3
+      },
+      {
+        "x": 167.1,
+        "y": 487.8
+      },
+      {
+        "x": 167,
+        "y": 486.2
+      },
+      {
+        "x": 166.8,
+        "y": 484.7
+      },
+      {
+        "x": 166.7,
+        "y": 483.2
+      },
+      {
+        "x": 166.6,
+        "y": 481.7
+      },
+      {
+        "x": 166.5,
+        "y": 480.1
+      },
+      {
+        "x": 166.3,
+        "y": 478.6
+      }
+    ],
+    "secondCoveredSamplesPoints": [],
+    "sites": [
+      {
+        "siteIdx": 0,
+        "x": 222,
+        "y": 497.6,
+        "lng": 128.67332813,
+        "lat": 35.84034389,
+        "bIdx": 1,
+        "sectors": [
+          {
+            "id": "AUTO-1-A",
+            "angle": 282,
+            "type": "auto"
+          }
+        ]
+      }
+    ],
+    "buildingCoverages": [
+      {
+        "bIdx": 0,
+        "total": 19,
+        "covered": 19,
+        "ratio": 100,
+        "secondCovered": 0,
+        "secondTotal": 26
+      },
+      {
+        "bIdx": 1,
+        "total": 20,
+        "covered": 0,
+        "ratio": 0,
+        "secondCovered": 0,
+        "secondTotal": 19
+      }
+    ],
+    "logs": [
+      {
+        "id": "AUTO-1-A",
+        "x": 222,
+        "y": 498,
+        "angle": 282,
+        "score": 19,
+        "coveredCount": 19,
+        "message": "[AUTO-SECTOR] Sector AUTO-1-A placed at (222, 498) facing 282° on Building #2. Secured 19m 1st coverage (LOS Score: 19)."
+      },
+      {
+        "id": "SITE-1",
+        "x": 222,
+        "y": 498,
+        "angle": 282,
+        "score": 19.01,
+        "coveredCount": 19,
+        "message": "[AUTO-SITE] Site #1 Summary at (222, 498). Deployed 1 active sectors [A(282°: 19m)]. Total Secured: 19m."
+      }
+    ]
+  },
+  "topRanks": [
+    {
+      "rank": 1,
+      "coverageRatio": 48.7,
+      "siteCount": 1,
+      "sectorCount": 1,
+      "sites": [
+        {
+          "x": 222,
+          "y": 497.6,
+          "lng": 128.67332813,
+          "lat": 35.84034389,
+          "bIdx": 1,
+          "angles": [
+            282
+          ]
+        }
+      ]
+    },
+    {
+      "rank": 2,
+      "coverageRatio": 71.9,
+      "siteCount": 2,
+      "sectorCount": 2,
+      "sites": [
+        {
+          "x": 218,
+          "y": 491,
+          "lng": 128.67330051,
+          "lat": 35.84038107,
+          "bIdx": 1,
+          "angles": [
+            280
+          ]
+        },
+        {
+          "x": 157,
+          "y": 492,
+          "lng": 128.67287723,
+          "lat": 35.84037544,
+          "bIdx": 0,
+          "angles": [
+            90
+          ]
+        }
+      ]
+    },
+    {
+      "rank": 3,
+      "coverageRatio": 71.9,
+      "siteCount": 2,
+      "sectorCount": 2,
+      "sites": [
+        {
+          "x": 220,
+          "y": 495,
+          "lng": 128.67331438,
+          "lat": 35.84035857,
+          "bIdx": 1,
+          "angles": [
+            280
+          ]
+        },
+        {
+          "x": 161,
+          "y": 491,
+          "lng": 128.67290499,
+          "lat": 35.84038107,
+          "bIdx": 0,
+          "angles": [
+            90
+          ]
+        }
+      ]
+    },
+    {
+      "rank": 4,
+      "coverageRatio": 21.9,
+      "siteCount": 2,
+      "sectorCount": 2,
+      "sites": [
+        {
+          "x": 154,
+          "y": 492,
+          "lng": 128.67285642,
+          "lat": 35.84037544,
+          "bIdx": 0,
+          "angles": [
+            90
+          ]
+        },
+        {
+          "x": 164,
+          "y": 491,
+          "lng": 128.67292581,
+          "lat": 35.84038107,
+          "bIdx": 0,
+          "angles": [
+            90
+          ]
+        }
+      ]
+    },
+    {
+      "rank": 5,
+      "coverageRatio": 37.5,
+      "siteCount": 2,
+      "sectorCount": 2,
+      "sites": [
+        {
+          "x": 157,
+          "y": 492,
+          "lng": 128.67287723,
+          "lat": 35.84037544,
+          "bIdx": 0,
+          "angles": [
+            90
+          ]
+        },
+        {
+          "x": 167,
+          "y": 491,
+          "lng": 128.67294662,
+          "lat": 35.84038107,
+          "bIdx": 0,
+          "angles": [
+            90
+          ]
+        }
+      ]
+    }
+  ],
+  "stepReport": {
+    "ina_no": "m-RAPA-2107-4632",
+    "apt_name": "m-RAPA-2107-4632",
+    "steps": {
+      "2.1_polygon_fetch": "OK",
+      "2.2_nearby_sites": "SKIP",
+      "2.3_kanro_check": "OK",
+      "2.4_veranda_setup": "OK",
+      "2.5_polygon_filter": "OK",
+      "2.6_los_simulation": "OK",
+      "2.7_ailayer_prep": "OK",
+      "3_ailayer_update": "SKIP"
+    },
+    "overall": "OK",
+    "error_msg": null,
+    "warning_msg": null,
+    "los_pct": 48.7,
+    "site_cnt": 1
+  }
+}

@@ -1,8 +1,48 @@
-node_modules/
-build/
-dist/
-coverage/
-.DS_Store
-*.log
-.env*
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Testing & Coverage
+/coverage
+
+# Production & Build outputs
+/build
+/dist
+
+# Environment variables & Secrets
+.env
+.env.*
 !.env.example
+polygon_test.txt
+*.pem
+*.key
+*.token
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary, large & scratch files
+/extra
+/_to_delete
+/scratch
+/public/veranda_ai_viewer.html
+/data/batch/*
+!/data/batch/.gitkeep
+/data/results/*
+!/data/results/.gitkeep
+!/data/results/*.json
+/data/sim-jobs
+*.dxf
+
+# IDE & Agent configs
+.DS_Store
+.claude/
+.gemini/
+.agents/
+.bkit/
+.mcp.json
+

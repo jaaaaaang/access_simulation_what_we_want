@@ -1,0 +1,540 @@
+{
+  "rapaKey": "m-RAPA-2205-3019",
+  "analyzedAt": "2026-08-17T13:14:25.248Z",
+  "durationSec": 1,
+  "status": "OK",
+  "errorMsg": null,
+  "warningMsg": null,
+  "source": "batch",
+  "params": {
+    "beamWidth": 65,
+    "maxRange": 150,
+    "targetCoverage": 60,
+    "pixelsPerMeter": 1.597,
+    "strictCoLocation": true,
+    "simulationMode": "full_auto",
+    "analysisArea": [
+      {
+        "x": 64.29907139502689,
+        "y": 720
+      },
+      {
+        "x": 576.7009286065166,
+        "y": 720
+      },
+      {
+        "x": 576.7009286065166,
+        "y": 80
+      },
+      {
+        "x": 64.29907139502689,
+        "y": 80
+      },
+      {
+        "x": 64.29907139502689,
+        "y": 720
+      }
+    ]
+  },
+  "scene": {
+    "buildingCount": 9,
+    "verandaSource": "verandaAi-v2.2",
+    "pixelsPerMeter": 1.597
+  },
+  "rank1": {
+    "coverageRatio": 36.3,
+    "secondCoveredSamples": 15,
+    "secondCoverage": 15,
+    "coveredSamples": [
+      {
+        "x": 298.1,
+        "y": 555.9
+      },
+      {
+        "x": 297.5,
+        "y": 554.7
+      },
+      {
+        "x": 296.9,
+        "y": 553.4
+      },
+      {
+        "x": 304.9,
+        "y": 569.1
+      },
+      {
+        "x": 304.3,
+        "y": 567.9
+      },
+      {
+        "x": 303.6,
+        "y": 566.7
+      },
+      {
+        "x": 303,
+        "y": 565.4
+      },
+      {
+        "x": 302.4,
+        "y": 564.2
+      },
+      {
+        "x": 301.8,
+        "y": 563
+      },
+      {
+        "x": 301.2,
+        "y": 561.8
+      },
+      {
+        "x": 300.6,
+        "y": 560.5
+      },
+      {
+        "x": 311.2,
+        "y": 581.3
+      },
+      {
+        "x": 310.6,
+        "y": 580.1
+      },
+      {
+        "x": 310,
+        "y": 578.9
+      },
+      {
+        "x": 309.3,
+        "y": 577.6
+      },
+      {
+        "x": 308.7,
+        "y": 576.4
+      },
+      {
+        "x": 308.1,
+        "y": 575.2
+      },
+      {
+        "x": 307.5,
+        "y": 574
+      },
+      {
+        "x": 306.9,
+        "y": 572.7
+      },
+      {
+        "x": 553.1,
+        "y": 492.6
+      },
+      {
+        "x": 554.7,
+        "y": 492.5
+      },
+      {
+        "x": 556.2,
+        "y": 492.5
+      },
+      {
+        "x": 557.8,
+        "y": 492.4
+      },
+      {
+        "x": 559.4,
+        "y": 492.3
+      },
+      {
+        "x": 560.9,
+        "y": 492.2
+      },
+      {
+        "x": 559.8,
+        "y": 524.7
+      },
+      {
+        "x": 560.8,
+        "y": 523.5
+      },
+      {
+        "x": 561.7,
+        "y": 522.3
+      },
+      {
+        "x": 562.6,
+        "y": 521.1
+      },
+      {
+        "x": 563.5,
+        "y": 520
+      },
+      {
+        "x": 564.4,
+        "y": 518.8
+      },
+      {
+        "x": 565.3,
+        "y": 517.6
+      },
+      {
+        "x": 566.2,
+        "y": 516.4
+      },
+      {
+        "x": 567.1,
+        "y": 515.3
+      },
+      {
+        "x": 568,
+        "y": 514.1
+      },
+      {
+        "x": 568.9,
+        "y": 512.9
+      },
+      {
+        "x": 569.8,
+        "y": 511.7
+      }
+    ],
+    "secondCoveredSamplesPoints": [
+      {
+        "x": 554.6,
+        "y": 471.5
+      },
+      {
+        "x": 554.4,
+        "y": 473
+      },
+      {
+        "x": 554.3,
+        "y": 474.5
+      },
+      {
+        "x": 554.2,
+        "y": 476
+      },
+      {
+        "x": 554.1,
+        "y": 477.5
+      },
+      {
+        "x": 554,
+        "y": 479
+      },
+      {
+        "x": 553.9,
+        "y": 480.5
+      },
+      {
+        "x": 553.8,
+        "y": 482
+      },
+      {
+        "x": 553.7,
+        "y": 483.6
+      },
+      {
+        "x": 553.6,
+        "y": 485.1
+      },
+      {
+        "x": 553.5,
+        "y": 486.6
+      },
+      {
+        "x": 553.4,
+        "y": 488.1
+      },
+      {
+        "x": 553.3,
+        "y": 489.6
+      },
+      {
+        "x": 553.2,
+        "y": 491.1
+      },
+      {
+        "x": 553.1,
+        "y": 492.6
+      }
+    ],
+    "sites": [
+      {
+        "siteIdx": 0,
+        "x": 535.8,
+        "y": 561.7,
+        "lng": 127.09469601,
+        "lat": 36.8089861,
+        "bIdx": 0,
+        "sectors": [
+          {
+            "id": "AUTO-1-B",
+            "angle": 268,
+            "type": "auto"
+          },
+          {
+            "id": "AUTO-1-A",
+            "angle": 19,
+            "type": "auto"
+          }
+        ]
+      }
+    ],
+    "buildingCoverages": [
+      {
+        "bIdx": 0,
+        "total": 13,
+        "covered": 0,
+        "ratio": 0,
+        "secondCovered": 0,
+        "secondTotal": 16
+      },
+      {
+        "bIdx": 1,
+        "total": 8,
+        "covered": 3,
+        "ratio": 37.5,
+        "secondCovered": 0,
+        "secondTotal": 8
+      },
+      {
+        "bIdx": 2,
+        "total": 8,
+        "covered": 8,
+        "ratio": 100,
+        "secondCovered": 0,
+        "secondTotal": 8
+      },
+      {
+        "bIdx": 3,
+        "total": 8,
+        "covered": 0,
+        "ratio": 0,
+        "secondCovered": 0,
+        "secondTotal": 8
+      },
+      {
+        "bIdx": 4,
+        "total": 7,
+        "covered": 0,
+        "ratio": 0,
+        "secondCovered": 0,
+        "secondTotal": 7
+      },
+      {
+        "bIdx": 5,
+        "total": 7,
+        "covered": 0,
+        "ratio": 0,
+        "secondCovered": 0,
+        "secondTotal": 7
+      },
+      {
+        "bIdx": 6,
+        "total": 8,
+        "covered": 8,
+        "ratio": 100,
+        "secondCovered": 0,
+        "secondTotal": 8
+      },
+      {
+        "bIdx": 7,
+        "total": 31,
+        "covered": 6,
+        "ratio": 54.35483870967742,
+        "secondCovered": 11,
+        "secondTotal": 30
+      },
+      {
+        "bIdx": 8,
+        "total": 12,
+        "covered": 12,
+        "ratio": 100,
+        "secondCovered": 0,
+        "secondTotal": 12
+      }
+    ],
+    "logs": [
+      {
+        "id": "AUTO-1-B",
+        "x": 536,
+        "y": 562,
+        "angle": 268,
+        "score": 19,
+        "coveredCount": 19,
+        "message": "[AUTO-SECTOR] Sector AUTO-1-B placed at (536, 562) facing 268° on Building #1. Secured 19m 1st coverage (LOS Score: 19)."
+      },
+      {
+        "id": "AUTO-1-A",
+        "x": 536,
+        "y": 562,
+        "angle": 19,
+        "score": 18,
+        "coveredCount": 18,
+        "message": "[AUTO-SECTOR] Sector AUTO-1-A placed at (536, 562) facing 19° on Building #1. Secured 18m 1st coverage (LOS Score: 18)."
+      },
+      {
+        "id": "SITE-1",
+        "x": 536,
+        "y": 562,
+        "angle": 19,
+        "score": 37.02,
+        "coveredCount": 37,
+        "message": "[AUTO-SITE] Site #1 Summary at (536, 562). Deployed 2 active sectors [B(268°: 19m), A(19°: 18m)]. Total Secured: 37m."
+      }
+    ]
+  },
+  "topRanks": [
+    {
+      "rank": 1,
+      "coverageRatio": 36.3,
+      "siteCount": 1,
+      "sectorCount": 2,
+      "sites": [
+        {
+          "x": 535.8,
+          "y": 561.7,
+          "lng": 127.09469601,
+          "lat": 36.8089861,
+          "bIdx": 0,
+          "angles": [
+            268,
+            19
+          ]
+        }
+      ]
+    },
+    {
+      "rank": 2,
+      "coverageRatio": 42,
+      "siteCount": 2,
+      "sectorCount": 3,
+      "sites": [
+        {
+          "x": 532,
+          "y": 561,
+          "lng": 127.09466914,
+          "lat": 36.8089899,
+          "bIdx": 0,
+          "angles": [
+            20,
+            270
+          ]
+        },
+        {
+          "x": 310,
+          "y": 578,
+          "lng": 127.09310943,
+          "lat": 36.80889428,
+          "bIdx": 6,
+          "angles": [
+            90
+          ]
+        }
+      ]
+    },
+    {
+      "rank": 3,
+      "coverageRatio": 39.5,
+      "siteCount": 2,
+      "sectorCount": 3,
+      "sites": [
+        {
+          "x": 532,
+          "y": 564,
+          "lng": 127.09466914,
+          "lat": 36.80897303,
+          "bIdx": 0,
+          "angles": [
+            20,
+            270
+          ]
+        },
+        {
+          "x": 309,
+          "y": 582,
+          "lng": 127.0931024,
+          "lat": 36.80887178,
+          "bIdx": 6,
+          "angles": [
+            90
+          ]
+        }
+      ]
+    },
+    {
+      "rank": 4,
+      "coverageRatio": 33.3,
+      "siteCount": 2,
+      "sectorCount": 2,
+      "sites": [
+        {
+          "x": 531,
+          "y": 568,
+          "lng": 127.09466212,
+          "lat": 36.80895053,
+          "bIdx": 0,
+          "angles": [
+            270
+          ]
+        },
+        {
+          "x": 308,
+          "y": 576,
+          "lng": 127.09309538,
+          "lat": 36.80890553,
+          "bIdx": 6,
+          "angles": [
+            90
+          ]
+        }
+      ]
+    },
+    {
+      "rank": 5,
+      "coverageRatio": 32.1,
+      "siteCount": 2,
+      "sectorCount": 2,
+      "sites": [
+        {
+          "x": 531,
+          "y": 571,
+          "lng": 127.09466212,
+          "lat": 36.80893365,
+          "bIdx": 0,
+          "angles": [
+            270
+          ]
+        },
+        {
+          "x": 307,
+          "y": 573,
+          "lng": 127.09308835,
+          "lat": 36.8089224,
+          "bIdx": 6,
+          "angles": [
+            90
+          ]
+        }
+      ]
+    }
+  ],
+  "stepReport": {
+    "ina_no": "m-RAPA-2205-3019",
+    "apt_name": "m-RAPA-2205-3019",
+    "steps": {
+      "2.1_polygon_fetch": "OK",
+      "2.2_nearby_sites": "SKIP",
+      "2.3_kanro_check": "OK",
+      "2.4_veranda_setup": "OK",
+      "2.5_polygon_filter": "OK",
+      "2.6_los_simulation": "OK",
+      "2.7_ailayer_prep": "OK",
+      "3_ailayer_update": "SKIP"
+    },
+    "overall": "OK",
+    "error_msg": null,
+    "warning_msg": null,
+    "los_pct": 36.3,
+    "site_cnt": 1
+  }
+}

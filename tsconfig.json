@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2022",
+    // 타입 검사 전면 적용 (2026-08-15 켬. 켠 시점 기준 오류 0개)
+    //  - strictNullChecks: null일 수 있는 값을 확인 없이 쓰면 컴파일 단계에서 잡는다
+    //  - noImplicitAny: 타입을 못 정한 값이 조용히 통과하지 못하게 한다
+    "strict": true,
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "module": "ESNext",
